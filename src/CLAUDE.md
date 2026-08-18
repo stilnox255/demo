@@ -89,7 +89,7 @@ fields, so the ordering is stated once.
   and RestAssured. `@InjectMock` for outbound ports.
 - Mocking a framework interface at a boundary is fine. Static mocking, spies,
   reflection into internals and resetting global state are not — each says a seam is
-  missing (`use-the-platform.md`).
+  missing.
 - A guard or a fitness function needs a demonstration that it fails when it should.
   A safeguard that cannot fire is worse than none, because it also stops anyone from
   looking.

@@ -6,10 +6,10 @@ mechanism, and the decisions behind them live in `docs/adr/`.
 
 ## Engineering Guidelines
 
-Binding always-on policies live in `docs/guidelines/`. Follow them for all code
-generation, edits, and reviews.
-
-@docs/guidelines/_index.md
+There are none in this repository. The binding reasoning lives in `docs/adr/`, and
+the per-area rules in `src/CLAUDE.md` and `web-app/CLAUDE.md`. `docs/guidelines/` is
+an empty extension point — see its `_index.md` for how to add a policy and wire it
+up, if a project grown from this one needs one.
 
 ## Backend Architecture
 
@@ -28,8 +28,8 @@ violation fails the build, not just review.
 ## Development Commands
 
 ```bash
-./gradlew quarkusDev    # dev mode; starts PostgreSQL + Keycloak as dev services and
-                        # compose-devservices.yml (object store + dev proxy) with them
+./gradlew quarkusDev    # dev mode; starts PostgreSQL + Keycloak + the S3 emulator as
+                        # dev services, and compose-devservices.yml (the dev proxy)
 
 # Tests are always scoped. A hook blocks unscoped build/check/test invocations
 # because they drag in the full integration suite.
@@ -66,11 +66,13 @@ Provided by Quarkus Dev Services in `quarkusDev`:
 - PostgreSQL — Flyway migrations in `src/main/resources/db/migration/`
 - Keycloak (8180) — realm from `src/main/resources/realm_configuration-dev.json`,
   users `admin/admin` and `user/user`
-- S3 emulator — a native-boot image, chosen for spin-up cost
+- S3 emulator — Floci, the same one the test suite uses; a native-boot image, chosen
+  for spin-up cost (ADR-44). Throwaway: uploads do not survive a restart. Point
+  `QUARKUS_S3_ENDPOINT_OVERRIDE` at your own store if you need them to.
 
-Also started by `quarkusDev`, from `compose-devservices.yml`: the persistent object
-store and the dev reverse proxy. Quarkus discovers that file itself, which is what
-makes dev mode a single command.
+Also started by `quarkusDev`, from `compose-devservices.yml`: the dev reverse proxy,
+and nothing else. Quarkus discovers that file itself, which is what makes dev mode a
+single command.
 
 The failure mode to know: that compose start is all-or-nothing. The dev proxy publishes
 :80, and if the port is taken the bind fails, the whole compose start aborts, and dev

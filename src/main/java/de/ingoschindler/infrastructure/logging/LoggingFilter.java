@@ -14,7 +14,7 @@ import org.jboss.logging.MDC;
 
 /**
  * Logs every inbound request at entry and on response so the platform-level boundary calls always show up in the
- * JSON log stream (see docs/guidelines/release-it.md). Pulls method, path, status, duration_ms from the JAX-RS
+ * JSON log stream. Pulls method, path, status, duration_ms from the JAX-RS
  * contexts; {@code traceId}/{@code spanId} are written to MDC by the OpenTelemetry integration for every
  * request, and {@code userId} is written by {@link UserIdMdcFilter} for authenticated requests. No request
  * bodies or auth headers are logged.

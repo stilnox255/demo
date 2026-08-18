@@ -45,16 +45,28 @@ src/main/java/de/ingoschindler/
 web-app/               frontend, boundary/control/entity per feature (ADR-28)
 load-test/             Gatling capacity tests (ADR-43)
 deploy/                self-contained deployment unit (ADR-39)
-docs/adr/              43 decision records
-docs/guidelines/       binding engineering policies
-.claude/               agent skills and hooks
+docs/adr/              45 decision records
+docs/guidelines/       empty extension point for project policy
+.claude/               the hook that keeps test runs scoped
 ```
+
+## Prerequisites
+
+Nothing is vendored and nothing is auto-provisioned, so these have to be on the
+machine first:
+
+| | |
+|---|---|
+| **JDK 25** | the Gradle toolchain requests it and no resolver is configured, so an older JDK fails the build rather than downloading one |
+| **Docker** | dev mode and the integration suite start real containers |
+| **Node 22** | for `web-app/` |
+| **`jq`** | only if you use Claude Code here — `.claude/hooks/block-unscoped-gradle-tests.sh` runs under `set -euo pipefail`, so without `jq` *every* shell call fails, not just the Gradle ones |
 
 ## Running it
 
-One command. Dev services provision PostgreSQL and Keycloak, and Quarkus also starts
-`compose-devservices.yml` — the persistent object store and a reverse proxy that
-mirrors the production path routing:
+One command. Dev services provision PostgreSQL, Keycloak and the S3 emulator, and
+Quarkus also starts `compose-devservices.yml` — a reverse proxy that mirrors the
+production path routing:
 
 ```bash
 ./gradlew quarkusDev
@@ -96,24 +108,44 @@ Rename in this order:
    than a `sed`; the string also appears in `build.gradle` (`group`),
    `application.properties` (log categories, fault-tolerance keys) and the ArchUnit
    `BASE_PACKAGE` constant.
-2. **Project name** — `starter` in `settings.gradle`, the container image names in
-   `application.properties` and `deploy/`, the Keycloak realm, the database name.
+2. **Project name** — `starter` is by far the widest of these, spread over ~50 files.
+   Do not work from a list; any list here goes stale the moment a file is added. Get
+   the current one:
+
+   ```bash
+   grep -rIl 'starter\|STARTER_' \
+       --exclude-dir={node_modules,dist,build,.git,.gradle,.idea} .
+   ```
+
+   The obvious hits are the Gradle project name, the config prefix in
+   `application.properties` and the image names. The ones people miss are in
+   `deploy/`: the `/srv/starter` remote path, the `STARTER_*` variables, the
+   Prometheus job name, the Grafana provisioning, and the Keycloak realm in
+   `keycloak-realm.json`. One file *name* carries it too,
+   `deploy/monitoring/grafana/dashboards/starter-overview.json`.
 3. **Config prefix** — `starter.*` in `application.properties` and the
    `@ConfigProperty` names that read it.
-4. **The demo component** — delete `de.ingoschindler.demo` and its tests, and add
+4. **Registry** — `registry.ingoschindler.de` and the `ingoschindler/` image
+   namespace. One input default in `.github/workflows/build-push-image.yml`, the
+   `REGISTRY` defaults in `deploy/docker-compose.yml` and `cleanup-registry.sh`, and
+   `quarkus.container-image.*` in `application.properties`. CI also expects
+   `SELFHOSTED_REGISTRY_USER` / `SELFHOSTED_REGISTRY_TOKEN` as repository secrets.
+5. **The demo component** — delete `de.ingoschindler.demo` and its tests, and add
    your own component in the same shape. The ArchUnit suite will tell you if the
    shape is wrong.
-5. **ADRs** — keep them. They describe the stack, not the demo. Adjust the ones
+6. **`LICENSE`** — MIT with the original author's name in the copyright line.
+7. **ADRs** — keep them. They describe the stack, not the demo. Adjust the ones
    whose trade-off differs for your project, and record *that* as the change.
 
 What to keep untouched unless you have a reason: `kernel/`, `infrastructure/`,
-`config/`, the CI workflows, and `docs/guidelines/`.
+`config/`, and the CI workflows.
 
 ## Guidelines
 
-Binding, always-on policy lives in [`docs/guidelines/`](docs/guidelines/), imported
-from `CLAUDE.md`. Policy that only applies in specific contexts belongs in a skill
-under `.claude/skills/` instead — see `docs/guidelines/_index.md` for both.
+There are none, deliberately. What binds is in [`docs/adr/`](docs/adr/README.md), and
+the per-area rules are in `src/CLAUDE.md` and `web-app/CLAUDE.md`.
+[`docs/guidelines/`](docs/guidelines/) is an empty extension point: its `_index.md`
+describes how to add a policy and wire it into `CLAUDE.md` if your project needs one.
 
 ## License
 
