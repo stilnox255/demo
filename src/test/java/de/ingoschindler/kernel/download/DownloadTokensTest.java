@@ -3,6 +3,8 @@ package de.ingoschindler.kernel.download;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -51,9 +53,19 @@ class DownloadTokensTest {
         var id = UUID.randomUUID();
         var token = tokens.generate(id);
 
-        // Flip the last character of the signature. Without the HMAC check this
-        // would still decode into a well-formed payload.
-        var tampered = token.substring(0, token.length() - 1) + (token.endsWith("A") ? "B" : "A");
+        // Flip a character of the signature *inside* the payload and re-encode, so the
+        // token still decodes into a well-formed `id|expiry|signature` and the HMAC is the
+        // only thing wrong with it.
+        //
+        // Not by editing the outer base64: the payload is 91 bytes, so its last character
+        // carries two significant bits, and flipping it decodes to the same bytes about a
+        // fifth of the time — the token then verifies and this test fails at random.
+        var decoded = new String(Base64.getUrlDecoder().decode(token), StandardCharsets.UTF_8);
+        var parts = decoded.split("\\|", 3);
+        var signature = parts[2];
+        var forged = (signature.charAt(0) == 'A' ? 'B' : 'A') + signature.substring(1);
+        var tampered = Base64.getUrlEncoder().withoutPadding()
+                .encodeToString((parts[0] + "|" + parts[1] + "|" + forged).getBytes(StandardCharsets.UTF_8));
 
         assertFalse(tokens.validate(tampered, id));
     }
