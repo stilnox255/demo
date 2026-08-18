@@ -15,8 +15,13 @@ on:
         description: 'Docker build context, relative to repo root'
         required: true
         type: string
+      registry:
+        description: 'Registry host to log in to and push to'
+        required: false
+        type: string
+        default: 'registry.ingoschindler.de'
       tag-suffix:
-        description: 'Prefix inserted before both tags, e.g. "jvm-" or "gpu-" (empty for none)'
+        description: 'Prefix inserted before both tags, e.g. "jvm-" (empty for none)'
         required: false
         type: string
         default: ''
@@ -30,11 +35,6 @@ on:
         required: false
         type: string
         default: ''
-      free-disk-space:
-        description: 'Remove preinstalled runner tooling (Android/.NET/Haskell/CodeQL/docker images) before building — needed for large CUDA images that exceed the ~14GB free on a standard runner'
-        required: false
-        type: boolean
-        default: false
     secrets:
       registry-user:
         required: true
@@ -52,19 +52,13 @@ jobs:
       contents: read
       actions: read
     steps:
-      - name: Free disk space
-        if: ${{ inputs.free-disk-space }}
-        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
-        with:
-          tool-cache: true
-          large-packages: false   # apt purge pass is slow and not needed here
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Compute image tag
         id: tag
         run: echo "value=$(date -u +%Y.%m.%d)-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
-          registry: registry.ingoschindler.de
+          registry: ${{ inputs.registry }}
           username: ${{ secrets.registry-user }}
           password: ${{ secrets.registry-token }}
       - name: Download build artifact
@@ -75,7 +69,7 @@ jobs:
           path: ${{ inputs.artifact-path }}
       - name: Build & push
         env:
-          REGISTRY_IMAGE: registry.ingoschindler.de/${{ inputs.image-name }}
+          REGISTRY_IMAGE: ${{ inputs.registry }}/${{ inputs.image-name }}
           TAG: ${{ inputs.tag-suffix }}${{ steps.tag.outputs.value }}
           LATEST: ${{ inputs.tag-suffix }}latest
           DOCKERFILE: ${{ inputs.dockerfile }}
