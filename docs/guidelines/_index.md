@@ -20,7 +20,7 @@ the file shows up under *Memory files*.
 These guidelines are loaded **only when a task falls into their context**, via skills
 whose `description:` is the trigger.
 
-Three skill groups don't depend on this project's domain, so they no longer live in
+Four skill groups don't depend on this project's domain, so they no longer live in
 this repo — they ship from the
 [`eng-guidelines`](https://github.com/stilnox255/eng-guidelines) Claude Code plugin
 marketplace:
@@ -38,26 +38,32 @@ marketplace:
   the skill now carries no link into this repo. `ADR-14` itself is unchanged: it
   still records *that* this project adopted the convention and which test enforces
   it, it's just no longer the canonical source of the convention itself.
+- `quarkus-tooling` — `quarkus` and `keycloak-administration`, vendored (MIT,
+  see `plugins/quarkus-tooling/ATTRIBUTION.md` in that repo) instead of tracked by
+  the local skill installer. Same tradeoff `book-guidelines` already made for its
+  ciembor-sourced content: no live drift detection, but installed once instead of
+  copy-pasted per project.
 
 Install once: `/plugin marketplace add stilnox255/eng-guidelines`, then
 `/plugin install book-guidelines@ingo-eng-guidelines`,
-`/plugin install epic-workflow@ingo-eng-guidelines`, and/or
-`/plugin install architecture@ingo-eng-guidelines`. Updates then arrive via `git pull`
-on the marketplace, not by re-copying files into this repo.
+`/plugin install epic-workflow@ingo-eng-guidelines`,
+`/plugin install architecture@ingo-eng-guidelines`, and/or
+`/plugin install quarkus-tooling@ingo-eng-guidelines`. Updates then arrive via
+`git pull` on the marketplace, not by re-copying files into this repo.
 
-`quarkus`, `quarkus-panache-smells`, and `keycloak-administration` stay separate again:
-those were vendored by some skill-installer CLI (exact tool unconfirmed — the
-`skills-lock.json` schema most closely matches the `skills.re` family, but not
-byte-for-byte) into `.agents/skills/`, symlinked into `.claude/skills/`. Until that's
-pinned down, this is the recorded provenance so a re-fetch is possible by hand:
+`quarkus-panache-smells` stays local, alone now: it's tracked by a skill installer
+(exact tool unconfirmed — the `skills-lock.json` schema most closely matches the
+`skills.re` family, but not byte-for-byte) in `.agents/skills/`, symlinked into
+`.claude/skills/`. Its source (`emvnuel/skill.md`) has **no LICENSE file and no
+license text anywhere in the repo** — default copyright applies, no redistribution
+permission — so it can't be vendored into the public `eng-guidelines` marketplace the
+way `quarkus`/`keycloak-administration` were. Recorded provenance:
 
 | Skill | Source | Path |
 |---|---|---|
-| `keycloak-administration` | `dauquangthanh/hanoi-rainbow` | `skills/keycloak-administration/SKILL.md` |
-| `quarkus` | `b6k-dev/quarkus-skill` | `skill/quarkus/SKILL.md` |
 | `quarkus-panache-smells` | `emvnuel/skill.md` | `quarkus-panache/SKILL.md` |
 
-(Also in `skills-lock.json`, with a content hash per skill for drift detection.)
+(Also in `skills-lock.json`, with a content hash for drift detection.)
 
 To add a contextual guideline that's specific to **this** project's domain, drop the
 file here and create a skill in `.claude/skills/<name>/SKILL.md` that reads it. If
