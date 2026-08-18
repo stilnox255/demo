@@ -54,8 +54,11 @@ against a deployed environment, with the target and the rate as parameters.
 ## Rationale
 
 The cost is one extra Gradle module — the only structural expansion in this
-repository — and the guidelines require capacity tests. Without a harness in the
-repository they do not get written; that is the observed outcome, not a prediction.
+repository. What it buys is the one claim nothing else here can check: ADR-22 says
+the service is multi-instance ready, and `deploy/` tunes Postgres and Redis against
+fixed container limits. Neither statement means anything until something drives load
+at it. And without a harness in the repository, capacity tests do not get written —
+that is the observed outcome, not a prediction.
 
 The module stays on an LTS Java rather than the backend's version: nothing in it
 compiles against the application, and the plugin's toolchain support lags, so a
