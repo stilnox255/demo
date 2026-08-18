@@ -1,7 +1,7 @@
 # Frontend — Project-specific Rules
 
-New views must match the look and feel of the existing ones — no `DESIGN.md` exists
-yet to serve as source of truth for that.
+New views must match the look and feel of the existing ones — see
+[`DESIGN.md`](DESIGN.md) for the tokens and reusable components to build them from.
 
 ## Commands
 
