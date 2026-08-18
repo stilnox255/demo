@@ -4,7 +4,13 @@ Read before editing any SKILL.md under `.claude/skills/`. Keeps token cost, team
 
 ## 1. Delegate, don't duplicate
 
-Project-specific skills (`define-epic`, `plan-epic`, `execute-tasks`) delegate generic process to `superpowers:*` sub-skills:
+`define-epic`, `plan-epic`, `execute-tasks`, `capture-idea`, and `github-projects` no
+longer live in this repo — they moved to the `epic-workflow` plugin in
+[`eng-guidelines`](https://github.com/stilnox255/eng-guidelines), since none of them
+depended on this project's domain. The delegation pattern they use is still the model
+for any skill added here, so it stays documented:
+
+Those skills delegate generic process to `superpowers:*` sub-skills:
 
 | Our skill | Delegates generic flow to |
 |---|---|
