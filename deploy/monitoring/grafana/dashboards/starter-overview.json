@@ -1,0 +1,124 @@
+{
+  "title": "Starter — Overview",
+  "uid": "starter-overview",
+  "tags": ["starter"],
+  "timezone": "utc",
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Traffic",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Request rate by status",
+      "description": "Splitting by outcome rather than a single total: a flat request rate with a rising 5xx share is the shape an incident actually has.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "sum by (outcome) (rate(http_server_requests_seconds_count{job=\"starter-backend\"}[5m]))",
+          "legendFormat": "{{outcome}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Request latency",
+      "description": "p95 and p99, not the mean. A mean hides exactly the tail that users notice.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{job=\"starter-backend\"}[5m])))",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{job=\"starter-backend\"}[5m])))",
+          "legendFormat": "p99"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Saturation",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Database connection pool",
+      "description": "Active against the configured maximum, plus threads waiting for a connection. A pool at its ceiling with a non-zero wait count is the first thing to look at under load — and the reason acquisition-timeout is set to fail fast.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "agroal_active_count{job=\"starter-backend\"}",
+          "legendFormat": "active"
+        },
+        {
+          "expr": "agroal_max_used_count{job=\"starter-backend\"}",
+          "legendFormat": "max used"
+        },
+        {
+          "expr": "agroal_awaiting_count{job=\"starter-backend\"}",
+          "legendFormat": "awaiting"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "JVM heap and threads",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "sum(jvm_memory_used_bytes{job=\"starter-backend\", area=\"heap\"})",
+          "legendFormat": "heap used"
+        },
+        {
+          "expr": "jvm_threads_live_threads{job=\"starter-backend\"}",
+          "legendFormat": "live threads"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Dependencies",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 18 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Cache hit ratio",
+      "description": "The number that says whether the cache is earning its complexity. A ratio near zero means the invalidation is too aggressive or the endpoint is not actually polled.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 19 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "max": 1, "min": 0 }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "sum(rate(cache_gets_total{job=\"starter-backend\", result=\"hit\"}[5m])) / clamp_min(sum(rate(cache_gets_total{job=\"starter-backend\"}[5m])), 1)",
+          "legendFormat": "hit ratio"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Redis and Postgres availability",
+      "description": "Exporter up-state. A cache going down must NOT take readiness with it (ADR-21, ADR-41), so this panel is how you find out at all.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 19 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": { "defaults": { "max": 1, "min": 0 }, "overrides": [] },
+      "targets": [
+        { "expr": "up{job=\"redis\"}", "legendFormat": "redis" },
+        { "expr": "up{job=\"postgres\"}", "legendFormat": "postgres" },
+        { "expr": "up{job=\"starter-backend\"}", "legendFormat": "backend" }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "version": 1
+}

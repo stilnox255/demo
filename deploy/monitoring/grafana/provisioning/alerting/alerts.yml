@@ -1,0 +1,90 @@
+apiVersion: 1
+
+# Three alerts, on purpose. An alert that nobody acts on trains everyone to
+# ignore the channel it arrives in, so this file only carries conditions that
+# mean "look now": the service is gone, it is failing, or it is out of database
+# connections.
+#
+# Deliberately absent: a cache-down alert. The cache degrading is not an
+# incident — it is the designed behaviour (ADR-41). It belongs on the dashboard,
+# not in a page.
+groups:
+  - orgId: 1
+    name: starter
+    folder: Starter
+    interval: 1m
+    rules:
+      - uid: starter-backend-down
+        title: Backend is not being scraped
+        condition: threshold
+        for: 2m
+        data:
+          - refId: query
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: Prometheus
+            model:
+              expr: up{job="starter-backend"}
+              instant: true
+              refId: query
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: query
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+              refId: threshold
+        annotations:
+          summary: The backend has not answered a scrape for two minutes.
+        labels:
+          severity: critical
+
+      - uid: starter-5xx-rate
+        title: Server error rate above 5%
+        condition: threshold
+        for: 5m
+        data:
+          - refId: query
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: Prometheus
+            model:
+              expr: sum(rate(http_server_requests_seconds_count{job="starter-backend", outcome="SERVER_ERROR"}[5m])) / clamp_min(sum(rate(http_server_requests_seconds_count{job="starter-backend"}[5m])), 1)
+              instant: true
+              refId: query
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: query
+              conditions:
+                - evaluator: { type: gt, params: [0.05] }
+              refId: threshold
+        annotations:
+          summary: More than 5% of requests are failing with a server error.
+        labels:
+          severity: critical
+
+      - uid: starter-pool-saturated
+        title: Requests are waiting for a database connection
+        condition: threshold
+        for: 5m
+        data:
+          - refId: query
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: Prometheus
+            model:
+              expr: agroal_awaiting_count{job="starter-backend"}
+              instant: true
+              refId: query
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: query
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+              refId: threshold
+        annotations:
+          summary: The connection pool is saturated; requests are queueing for a connection and will start timing out after 5s.
+        labels:
+          severity: warning

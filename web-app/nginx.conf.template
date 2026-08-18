@@ -1,0 +1,66 @@
+# Nginx vhost for the built frontend.
+#
+# A .template rather than a .conf: the nginx image's own
+# /docker-entrypoint.d/20-envsubst-on-templates.sh renders everything in
+# /etc/nginx/templates into /etc/nginx/conf.d at container start. That is how
+# ${AUTH_ORIGIN} below becomes an environment concern instead of a rebuild —
+# the identity provider differs per deployment, and a hardcoded origin in a CSP
+# is the kind of thing that is only discovered when login breaks in production.
+#
+# NGINX_ENVSUBST_FILTER (set in the compose file) restricts substitution to
+# AUTH_*; without it envsubst would also eat $uri and $host.
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+    gzip_min_length 1024;
+
+    # Security headers have to be repeated in every `location` block that carries
+    # its own add_header, because nginx replaces inherited headers rather than
+    # merging them as soon as any add_header appears in a nested scope. Repetition
+    # here is not redundancy: dropping it silently unsets the headers for that
+    # location.
+    #
+    # The CSP lives here and not in the reverse proxy's shared middleware: a
+    # script-src policy belongs to whatever serves the scripts, and applying it to
+    # the backend's JSON responses would be meaningless at best (ADR-42).
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Content-Security-Policy "default-src 'self'; connect-src 'self' ${AUTH_ORIGIN}; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'" always;
+
+    location = /healthz { return 200 "ok\n"; add_header Content-Type text/plain; }
+
+    # Hashed filenames, so the content at a given URL never changes. immutable
+    # tells the browser it need not even revalidate.
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Content-Security-Policy "default-src 'self'; connect-src 'self' ${AUTH_ORIGIN}; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'" always;
+        try_files $uri =404;
+    }
+
+    # The entry document must not be cached, or a deploy ships new assets that
+    # nobody's browser asks for.
+    location = /index.html {
+        add_header Cache-Control "no-cache, must-revalidate";
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Content-Security-Policy "default-src 'self'; connect-src 'self' ${AUTH_ORIGIN}; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'" always;
+        expires 0;
+    }
+
+    # Client-side routing: unknown paths are routes, not missing files.
+    location / { try_files $uri $uri/ /index.html; }
+}

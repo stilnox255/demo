@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# Versioned pre-commit hook. Enable once per clone:
+#   git config core.hooksPath .githooks
+#
+# Verify-only: checks formatting (Spotless) and structural lint (Checkstyle).
+# Mutates nothing. Fix formatting with: ./gradlew spotlessApply
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+# IDE GUIs run hooks with a bare environment (no shell profile sourced), so
+# JAVA_HOME / PATH may be missing. Resolve a JDK before invoking Gradle.
+if [ -z "${JAVA_HOME:-}" ] || ! [ -x "${JAVA_HOME}/bin/java" ]; then
+    for candidate in \
+        "${HOME}/.sdkman/candidates/java/current" \
+        "$(command -v java >/dev/null 2>&1 && dirname "$(dirname "$(readlink -f "$(command -v java)")")")" \
+        /usr/lib/jvm/default-java \
+        "${JAVA_HOME:-}"; do
+        if [ -n "${candidate}" ] && [ -x "${candidate}/bin/java" ]; then
+            export JAVA_HOME="${candidate}"
+            break
+        fi
+    done
+fi
+
+if [ -z "${JAVA_HOME:-}" ] || ! [ -x "${JAVA_HOME}/bin/java" ]; then
+    echo "pre-commit: no JDK found. Set JAVA_HOME (e.g. via SDKMAN)." >&2
+    exit 1
+fi
+export PATH="${JAVA_HOME}/bin:${PATH}"
+
+# Only staged .java files, not the whole tree — keeps the hook fast and
+# avoids failing on pre-existing violations in files you didn't touch.
+mapfile -t staged_java < <(git diff --cached --name-only --diff-filter=ACMR -- '*.java')
+
+if [ "${#staged_java[@]}" -eq 0 ]; then
+    exit 0
+fi
+
+spotless_regex=""
+for f in "${staged_java[@]}"; do
+    escaped="${f//./\\.}"
+    if [ -z "${spotless_regex}" ]; then
+        spotless_regex="${escaped}"
+    else
+        spotless_regex="${spotless_regex}|${escaped}"
+    fi
+done
+
+echo "pre-commit: spotlessCheck (staged files only) + checkstyle ..."
+if ! ./gradlew --offline --quiet "-PspotlessFiles=${spotless_regex}" spotlessCheck checkstyleMain checkstyleTest; then
+    echo
+    echo "pre-commit FAILED."
+    echo "  Formatting:  ./gradlew spotlessApply -PspotlessFiles=\"${spotless_regex}\""
+    echo "  Checkstyle:  fix violations above, then re-commit."
+    exit 1
+fi

@@ -1,0 +1,23 @@
+{
+  "name": "starter-frontend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "pretest": "npm run build",
+    "test": "npx playwright test",
+    "test:unit": "vitest run",
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "jsdom": "^29.1.1",
+    "vite": "^7.3.1",
+    "vitest": "^4.1.9"
+  },
+  "dependencies": {
+    "@reduxjs/toolkit": "^2.11.2",
+    "@vaadin/router": "^2.0.1",
+    "lit-html": "^3.3.2"
+  }
+}

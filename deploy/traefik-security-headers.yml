@@ -1,0 +1,64 @@
+## Traefik dynamic middleware for this stack's routers.
+##
+## HOW TO INSTALL
+##   1. Copy this file into the dynamic-config directory of the host that runs
+##      Traefik — in a typical setup /srv/proxy/dynamic/starter-security-headers.yml.
+##   2. Traefik reloads dynamic files by itself; no restart needed.
+##   3. The routers already reference it: see the
+##      `middlewares=redirect-https@file,starter-security-headers@file` labels in
+##      docker-compose.yml.
+##
+## WHY IT LIVES HERE AND NOT IN THE COMPOSE LABELS
+##   Header middleware defined through labels is duplicated per router and drifts
+##   the moment a new service is added. One file definition, referenced by name,
+##   applies the same policy to every router — and a change to it is one diff
+##   instead of four.
+##
+## WHY THERE IS NO CSP IN THIS FILE
+##   A Content-Security-Policy is workload-specific: `script-src` is a statement
+##   about who serves the scripts. Applying the frontend's policy to the backend's
+##   JSON responses would be meaningless at best and misleading at worst, so the
+##   CSP lives in the Nginx vhost that serves the assets (web-app/nginx.conf.template)
+##   and this file carries only the headers that are correct for everything.
+##   See ADR-42.
+##
+## WHAT IT SETS
+##   HSTS (1 year, includeSubdomains, preload)  force HTTPS on every later visit
+##   X-Content-Type-Options: nosniff            stop MIME-sniffing based XSS
+##   Referrer-Policy                            keep full URLs off cross-origin requests
+##   X-Frame-Options: DENY                      clickjacking
+##   COOP / CORP: same-origin                   cross-origin isolation
+##   Permissions-Policy                         deny device APIs nothing here uses
+
+http:
+  middlewares:
+    starter-security-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+
+        contentTypeNosniff: true
+        browserXssFilter: true
+        referrerPolicy: strict-origin-when-cross-origin
+
+        frameDeny: true
+        customFrameOptionsValue: DENY
+
+        customResponseHeaders:
+          # same-origin rather than same-site: SAMEORIGIN-style relaxation would
+          # let any subdomain of the deployment embed the app, which is a wider
+          # trust boundary than anything here needs.
+          Cross-Origin-Opener-Policy: same-origin
+          Cross-Origin-Resource-Policy: same-origin
+          # Deny by omission: every capability listed with an empty allowlist is
+          # switched off. Add one back only when a feature actually needs it.
+          Permissions-Policy: >-
+            accelerometer=(),
+            camera=(),
+            geolocation=(),
+            gyroscope=(),
+            magnetometer=(),
+            microphone=(),
+            payment=(),
+            usb=()

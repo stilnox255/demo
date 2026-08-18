@@ -1,0 +1,57 @@
+plugins {
+    id 'java'
+    id 'io.gatling.gradle' version '3.13.5'
+}
+
+repositories {
+    mavenCentral()
+}
+
+// Deliberately not pinned to the backend's Java 25: nothing here compiles against
+// the application, and the Gatling plugin's toolchain support lags behind. Keeping
+// this module on an LTS stops a version bump in the backend from blocking a
+// capacity test.
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+ext {
+    reportsDir = file('build/reports/gatling')
+}
+
+// Runs a simulation through a plain JavaExec rather than the plugin's own
+// `gatlingRun`, which calls project.javaexec() — removed in Gradle 9. This does
+// the same work and stays in our hands.
+tasks.register('runSimulation', JavaExec) {
+    group = 'Gatling'
+    description = 'Run a Gatling simulation (-Dgatling.simulationClass=simulations.XxxSimulation)'
+    dependsOn 'compileGatlingJava'
+
+    classpath = sourceSets.gatling.runtimeClasspath
+    mainClass = 'io.gatling.app.Gatling'
+    jvmArgs '-Xms512m', '-Xmx2g',
+            '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
+            '--add-opens', 'java.base/java.lang.reflect=ALL-UNNAMED',
+            '--add-opens', 'java.base/java.io=ALL-UNNAMED',
+            '--add-opens', 'java.base/java.util=ALL-UNNAMED',
+            '--add-opens', 'java.base/java.util.concurrent=ALL-UNNAMED'
+
+    doFirst {
+        def simClass = System.getProperty('gatling.simulationClass')
+        if (!simClass) {
+            throw new GradleException(
+                    'Specify the simulation: -Dgatling.simulationClass=simulations.DemoItemsSimulation')
+        }
+        args '--simulation', simClass, '--results-folder', reportsDir.absolutePath
+        // Forward the -D knobs (baseUrl, usersPerSec, bearerToken, …) into the
+        // Gatling JVM. Filtering the JVM's own namespaces keeps the child process
+        // from inheriting a copy of every standard property.
+        systemProperties(System.properties.findAll { k, _ ->
+            !['sun', 'java', 'file', 'os', 'user', 'path', 'line', 'gatling', 'jdk', 'native'].any {
+                k.toString().startsWith(it + '.')
+            }
+        })
+    }
+}

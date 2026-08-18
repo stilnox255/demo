@@ -1,0 +1,603 @@
+# Production stack for the starter (ADR-39).
+#
+# What this file assumes it does NOT own, because those are shared per host and
+# outlive any single application:
+#
+#   * Traefik — runs on the host in network_mode: host and discovers containers
+#     through the `web` bridge below. The routers here are labels, not a proxy.
+#   * Keycloak — the identity provider. This stack authenticates against it and
+#     needs a copy of its client secret; it does not run it.
+#   * Prometheus / Grafana — bring your own, or start the optional `monitoring`
+#     profile in this file for a self-contained setup (see deploy/README.md).
+#
+# Everything is `expose`, never `ports`: nothing here is reachable from outside
+# the host except through Traefik. A published port is a decision, and the
+# default should be no.
+#
+# Hardening is applied per service rather than assumed: no-new-privileges,
+# cap_drop, resource limits, log rotation. See deploy/SECURITY.md for the
+# reasoning and for what is deliberately left open.
+
+services:
+  backend:
+    image: ${REGISTRY:-registry.ingoschindler.de}/${BACKEND_IMAGE_NAME:-ingoschindler/starter-backend}:${BACKEND_IMAGE_TAG:-latest}
+    expose:
+      - "8080"
+      - "9000"
+    environment:
+      QUARKUS_PROFILE: prod
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://postgres:5432/starter
+      QUARKUS_DATASOURCE_USERNAME: starter
+      QUARKUS_DATASOURCE_PASSWORD_FILE: /run/secrets/db_password
+      S3_ENDPOINT_OVERRIDE: http://rustfs:9000
+      S3_BUCKET_FILES: files
+      S3_ACCESS_KEY_FILE: /run/secrets/s3_access_key
+      S3_SECRET_KEY_FILE: /run/secrets/s3_secret_key
+      # The Redis password is assembled into QUARKUS_REDIS_HOSTS by
+      # backend-entrypoint.sh — a URL cannot be composed from a secret file by
+      # Quarkus itself.
+      REDIS_PASSWORD_FILE: /run/secrets/redis_password
+      KEYCLOAK_URL: https://${AUTH_DOMAIN}/realms/${KEYCLOAK_REALM:-starter}
+      KEYCLOAK_CLIENT_ID: backend
+      KEYCLOAK_CLIENT_SECRET_FILE: /run/secrets/keycloak_client_secret
+      QUARKUS_OIDC_CLIENT_ID: frontend-client
+      DOWNLOAD_TOKEN_SECRET_FILE: /run/secrets/download_token_secret
+      STARTER_API_BASE_URL: https://app.${DOMAIN}
+      LOG_COLLECTOR_ENDPOINT: ${LOG_COLLECTOR_ENDPOINT:-alloy:5140}
+      QUARKUS_LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    # mode: 0444 states the intent. Compose outside Swarm often ignores it, which
+    # is why setup-secrets.sh also writes the host files 0644 inside a 0700
+    # directory — the container UID is not the host owner, and 0600 fails to be
+    # readable with no error message worth the name.
+    secrets:
+      - source: db_password
+        mode: 0444
+      - source: redis_password
+        mode: 0444
+      - source: s3_access_key
+        mode: 0444
+      - source: s3_secret_key
+        mode: 0444
+      - source: keycloak_client_secret
+        mode: 0444
+      - source: download_token_secret
+        mode: 0444
+    volumes:
+      - ./backend-entrypoint.sh:/opt/entrypoint-wrapper.sh:ro
+      - ./healthcheck.sh:/opt/healthcheck.sh:ro
+    entrypoint: ["/bin/bash", "/opt/entrypoint-wrapper.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rustfs:
+        condition: service_healthy
+    networks:
+      - app-network
+      - monitoring
+      - web
+    restart: unless-stopped
+    # PID 1 that reaps children and forwards signals, so a `docker stop` is a
+    # clean JVM shutdown rather than a 10-second wait and a SIGKILL.
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    # No cap_add for the backend. It runs as non-root UID 1001, and a capability
+    # in the bounding set does nothing for a non-root process without file
+    # capabilities on the binary — the JVM ends up with an empty effective set
+    # either way. Secret files are readable because of their host mode, not
+    # because of a capability.
+    cap_drop:
+      - ALL
+    # No read_only: true. The JVM writes to /tmp (uploads, heap dumps) and the
+    # Quarkus layout writes under /deployments. A blanket read-only mount trades
+    # a visible risk for subtle runtime failures; no-new-privileges plus
+    # cap_drop: ALL carry most of the benefit. Revisit with explicit tmpfs
+    # mounts if it becomes a requirement.
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "/bin/bash", "/opt/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      - "traefik.enable=true"
+      # Explicit, because this container sits on three networks and Traefik would
+      # otherwise pick one.
+      - "traefik.docker.network=starter_web"
+      - "traefik.http.routers.starter-backend.rule=Host(`app.${DOMAIN}`) && (PathPrefix(`/api`) || PathPrefix(`/q`) || PathPrefix(`/.well-known`))"
+      - "traefik.http.routers.starter-backend.priority=100"
+      - "traefik.http.routers.starter-backend.entrypoints=web,websecure"
+      - "traefik.http.routers.starter-backend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.starter-backend.middlewares=redirect-https@file,starter-security-headers@file"
+      - "traefik.http.services.starter-backend.loadbalancer.server.port=8080"
+      # Handshaking (Nygard): without a load-balancer health check Traefik routes
+      # into an instance that is still booting or already broken. The readiness
+      # probe answers only when the dependencies that matter are reachable.
+      - "traefik.http.services.starter-backend.loadbalancer.healthcheck.path=/q/health/ready"
+      - "traefik.http.services.starter-backend.loadbalancer.healthcheck.port=8080"
+      - "traefik.http.services.starter-backend.loadbalancer.healthcheck.interval=10s"
+      - "traefik.http.services.starter-backend.loadbalancer.healthcheck.timeout=3s"
+
+  # Static frontend. A separate Nginx container rather than a bundle inside the
+  # backend image (ADR-25): the two have different build inputs, different cache
+  # headers and different deploy cadences.
+  frontend:
+    image: ${REGISTRY:-registry.ingoschindler.de}/${FRONTEND_IMAGE_NAME:-ingoschindler/starter-frontend}:${FRONTEND_IMAGE_TAG:-latest}
+    expose:
+      - "80"
+    environment:
+      # Substituted into the CSP by the nginx image's template rendering. The
+      # frontend has to be allowed to talk to the identity provider it redirects
+      # to, and that host differs per deployment.
+      AUTH_ORIGIN: https://${AUTH_DOMAIN}
+      NGINX_ENVSUBST_FILTER: ^AUTH_
+    networks:
+      - web
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+        reservations:
+          cpus: '0.1'
+          memory: 32M
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/healthz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=starter_web"
+      # Lower priority than the backend router, so /api and /q keep winning and
+      # everything else falls through to the SPA.
+      - "traefik.http.routers.starter-frontend.rule=Host(`app.${DOMAIN}`)"
+      - "traefik.http.routers.starter-frontend.priority=10"
+      - "traefik.http.routers.starter-frontend.entrypoints=web,websecure"
+      - "traefik.http.routers.starter-frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.starter-frontend.middlewares=redirect-https@file,starter-security-headers@file"
+      - "traefik.http.services.starter-frontend.loadbalancer.server.port=80"
+      - "traefik.http.services.starter-frontend.loadbalancer.healthcheck.path=/healthz"
+      - "traefik.http.services.starter-frontend.loadbalancer.healthcheck.interval=10s"
+      - "traefik.http.services.starter-frontend.loadbalancer.healthcheck.timeout=3s"
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+      PGDATA: /var/lib/postgresql/data/pgdata
+      # Consumed by init-db.sh to create the application role, which is not the
+      # superuser the container starts as.
+      APP_DB_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - postgres_password
+      - db_password
+    expose:
+      - "5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - postgres_backups:/backups
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+    networks:
+      - app-network
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # Postgres and Redis do need these three: their entrypoints start as root and
+    # then drop to their service user, so the root process uses the capability
+    # for real. That is the difference from the backend above.
+    cap_add:
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Tuned for the 2G limit above rather than left at the defaults, which assume
+    # a much smaller machine. max_connections is well above the application pool
+    # so exporters and a psql session never compete with request traffic for the
+    # last slot.
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=200"
+      - "-c"
+      - "shared_buffers=256MB"
+      - "-c"
+      - "effective_cache_size=1GB"
+      - "-c"
+      - "maintenance_work_mem=64MB"
+      - "-c"
+      - "checkpoint_completion_target=0.9"
+      - "-c"
+      - "wal_buffers=16MB"
+      - "-c"
+      - "default_statistics_target=100"
+      - "-c"
+      - "random_page_cost=1.1"
+      - "-c"
+      - "effective_io_concurrency=200"
+      - "-c"
+      - "work_mem=1310kB"
+      - "-c"
+      - "min_wal_size=1GB"
+      - "-c"
+      - "max_wal_size=4GB"
+
+  # Scheduled dumps. The manual path and the restore path are scripts instead:
+  # backup-db.sh, restore-db.sh. A backup nobody has restored is a hypothesis.
+  postgres-backup:
+    image: prodrigestivill/postgres-backup-local:17-alpine
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: starter
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      SCHEDULE: "@daily"
+      BACKUP_KEEP_DAYS: 7
+      BACKUP_KEEP_WEEKS: 4
+      BACKUP_KEEP_MONTHS: 6
+      HEALTHCHECK_PORT: 8080
+    secrets:
+      - postgres_password
+    volumes:
+      - postgres_backups:/backups
+    networks:
+      - app-network
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Cache (ADR-41). requirepass comes from a secret rather than the command line:
+  # without it Redis is open to everything on app-network, and CONFIG SET plus
+  # MODULE LOAD is the standard path from "reachable" to "remote code execution".
+  redis:
+    image: redis:7-alpine
+    expose:
+      - "6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - app-network
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+    secrets:
+      - redis_password
+    entrypoint: ["/bin/sh", "-c"]
+    # maxmemory with allkeys-lru, not the default of unlimited: a cache that can
+    # grow without a ceiling is an OOM with extra steps. appendonly keeps warm
+    # entries across a restart, which is nice to have and not relied upon —
+    # everything here is reconstructible from the database.
+    command:
+      - |
+        REDIS_PW="$$(cat /run/secrets/redis_password)"
+        exec redis-server --requirepass "$$REDIS_PW" \
+                          --protected-mode yes \
+                          --appendonly yes \
+                          --maxmemory 256mb \
+                          --maxmemory-policy allkeys-lru
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    healthcheck:
+      # Reads the password from the mounted secret; `redis-cli ping` alone answers
+      # NOAUTH and would report the container unhealthy forever.
+      test: ["CMD-SHELL", "redis-cli -a \"$$(cat /run/secrets/redis_password)\" --no-auth-warning ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # S3-compatible object storage.
+  rustfs:
+    image: rustfs/rustfs:latest
+    secrets:
+      - source: s3_access_key
+        mode: 0444
+      - source: s3_secret_key
+        mode: 0444
+    expose:
+      - "9000"
+      - "9090"
+    volumes:
+      - rustfs_data:/data
+      - ./rustfs-entrypoint.sh:/entrypoint-wrapper.sh:ro
+    entrypoint: ["/bin/sh", "/entrypoint-wrapper.sh"]
+    networks:
+      - app-network
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    healthcheck:
+      test: ['CMD-SHELL', 'nc -z localhost 9000 || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Creates the bucket on first boot and exits. Idempotent, so a re-run after a
+  # partial deploy is safe — which is the only kind of one-shot job worth having.
+  rustfs-init:
+    image: amazon/aws-cli:latest
+    depends_on:
+      rustfs:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      aws configure set aws_access_key_id $$(cat /run/secrets/s3_access_key);
+      aws configure set aws_secret_access_key $$(cat /run/secrets/s3_secret_key);
+      aws --endpoint-url=http://rustfs:9000 s3 mb s3://files || true;
+      exit 0;
+      "
+    secrets:
+      - s3_access_key
+      - s3_secret_key
+    networks:
+      - app-network
+    security_opt:
+      - no-new-privileges:true
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    environment:
+      DATA_SOURCE_URI: postgres:5432/postgres?sslmode=disable
+      DATA_SOURCE_USER: postgres
+      DATA_SOURCE_PASS_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    expose:
+      - "9187"
+    networks:
+      - app-network
+      - monitoring
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    environment:
+      REDIS_ADDR: redis://redis:6379
+      REDIS_PASSWORD_FILE: /run/secrets/redis_password
+    secrets:
+      - source: redis_password
+        mode: 0444
+    expose:
+      - "9121"
+    networks:
+      - app-network
+      - monitoring
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      redis:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # Optional self-contained monitoring, behind a compose profile.
+  #
+  #   docker compose --profile monitoring up -d
+  #
+  # Off by default because a real host usually already runs one Prometheus for
+  # everything, and this stack's exporters are attached to the external
+  # monitoring_net for exactly that. Turn the profile on when there is nothing to
+  # attach to — a demo host, or a laptop.
+  # ---------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    profiles: ["monitoring"]
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    expose:
+      - "9090"
+    networks:
+      - app-network
+      - monitoring
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    profiles: ["monitoring"]
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      # Read by grafana-entrypoint.sh and re-exported without its trailing
+      # newline, which Grafana's own $__file{} interpolation keeps and Postgres
+      # then rejects.
+      APP_DB_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - source: grafana_admin_password
+        mode: 0444
+      - source: db_password
+        mode: 0444
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./grafana-entrypoint.sh:/opt/grafana-entrypoint.sh:ro
+      - grafana_data:/var/lib/grafana
+    entrypoint: ["/bin/bash", "/opt/grafana-entrypoint.sh"]
+    expose:
+      - "3000"
+    networks:
+      - app-network
+      - monitoring
+      - web
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      - prometheus
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=starter_web"
+      - "traefik.http.routers.starter-grafana.rule=Host(`grafana.${DOMAIN}`)"
+      - "traefik.http.routers.starter-grafana.entrypoints=web,websecure"
+      - "traefik.http.routers.starter-grafana.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.starter-grafana.middlewares=redirect-https@file,starter-security-headers@file"
+      - "traefik.http.services.starter-grafana.loadbalancer.server.port=3000"
+
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+  db_password:
+    file: ./secrets/db_password.txt
+  redis_password:
+    file: ./secrets/redis_password.txt
+  s3_access_key:
+    file: ./secrets/s3_access_key.txt
+  s3_secret_key:
+    file: ./secrets/s3_secret_key.txt
+  keycloak_client_secret:
+    file: ./secrets/keycloak_client_secret.txt
+  download_token_secret:
+    file: ./secrets/download_token_secret.txt
+  grafana_admin_password:
+    file: ./secrets/grafana_admin_password.txt
+
+volumes:
+  postgres_data:
+    driver: local
+  postgres_backups:
+    driver: local
+  redis_data:
+    driver: local
+  rustfs_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  # Internal traffic between the application and its dependencies. Nothing on
+  # this network is reachable from the host.
+  app-network:
+    driver: bridge
+  # Bridge the host's Traefik uses to reach the public-facing services. Named
+  # per stack (compose prefixes it, giving `starter_web`) so a
+  # `traefik.docker.network` label resolves unambiguously for containers that
+  # sit on more than one network.
+  web:
+    driver: bridge
+  # Shared with whatever scrapes the exporters. External so it survives a
+  # `compose down` and can be joined by other stacks; create it once with
+  # `docker network create monitoring_net`.
+  monitoring:
+    external: true
+    name: monitoring_net

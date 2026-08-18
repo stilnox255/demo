@@ -1,0 +1,51 @@
+# Gradle
+.gradle/
+build/
+
+# Eclipse
+.project
+.classpath
+.settings/
+bin/
+
+# IntelliJ
+.idea
+*.ipr
+*.iml
+*.iws
+
+# Visual Studio Code
+.vscode
+.factorypath
+
+# OSX
+.DS_Store
+
+# Vim
+*.swp
+*.swo
+
+# patch
+*.orig
+*.rej
+
+# Local environment
+.env
+.env.local
+.env.prod
+
+# Plugin directory
+/.quarkus/cli/plugins/
+
+# TLS certificates
+.certs/
+/out/**
+
+# Deployment secrets are generated on the host by deploy/setup-secrets.sh and
+# must never be committed.
+**/secrets
+
+# Per-machine local Claude config
+.claude/*.local.md
+.claude/*.local.json
+.claude/worktrees/**

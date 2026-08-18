@@ -1,0 +1,24 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+
+  # Direct SQL access, for the questions metrics cannot answer ("how many items
+  # are stuck in DRAFT"). Read-only: a dashboard must never be able to write.
+  - name: PostgreSQL
+    type: postgres
+    url: postgres:5432
+    database: starter
+    user: starter
+    # $__env, not $__file: Grafana's file interpolation keeps the trailing newline
+    # and Postgres rejects the login. grafana-entrypoint.sh strips it and exports
+    # this variable — see the comment in that script.
+    secureJsonData:
+      password: $__env{APP_DB_PASSWORD}
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1700

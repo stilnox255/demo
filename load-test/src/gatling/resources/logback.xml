@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%-5level] %logger{20} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- WARN by default: at a few hundred requests per second, per-request
+         logging costs more than the requests. Uncomment to trace one failing
+         request:
+    <logger name="io.gatling.http.engine.response" level="DEBUG" />
+    -->
+
+    <root level="WARN">
+        <appender-ref ref="CONSOLE" />
+    </root>
+</configuration>

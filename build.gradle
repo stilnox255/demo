@@ -1,0 +1,247 @@
+plugins {
+    id 'java'
+    id 'io.quarkus'
+    id 'jacoco'
+    id 'checkstyle'
+    id 'com.diffplug.spotless' version '8.6.0'
+}
+
+configurations {
+    mockitoAgent
+}
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+}
+
+dependencies {
+    implementation enforcedPlatform("${quarkusPlatformGroupId}:quarkus-amazon-services-bom:${quarkusPlatformVersion}")
+    implementation enforcedPlatform("${quarkusPlatformGroupId}:${quarkusPlatformArtifactId}:${quarkusPlatformVersion}")
+    implementation 'io.quarkus:quarkus-oidc'
+    implementation 'io.quarkus:quarkus-rest'
+    implementation 'io.quarkus:quarkus-rest-jsonb'
+    implementation 'io.quarkus:quarkus-rest-client-jsonb'
+    implementation 'io.quarkus:quarkus-hibernate-orm-panache'
+    implementation 'io.quarkus:quarkus-smallrye-openapi'
+    implementation 'io.quarkus:quarkus-smallrye-health'
+    implementation 'io.quarkus:quarkus-smallrye-fault-tolerance'
+    implementation 'io.quarkus:quarkus-security'
+    implementation 'io.quarkus:quarkus-jdbc-postgresql'
+    implementation 'io.quarkus:quarkus-flyway'
+    implementation 'io.quarkus:quarkus-micrometer'
+    implementation 'io.quarkus:quarkus-micrometer-registry-prometheus'
+    implementation 'io.quarkus:quarkus-opentelemetry'
+    implementation 'io.quarkus:quarkus-logging-json'
+    implementation 'io.quarkus:quarkus-container-image-jib'
+    implementation 'io.quarkus:quarkus-scheduler'
+    implementation 'io.quarkus:quarkus-arc'
+    implementation 'io.quarkus:quarkus-hibernate-validator'
+    // Caching. quarkus-cache alone would ship the Caffeine backend only; the
+    // redis-cache extension adds the Redis backend that %prod switches to
+    // (ADR-41) and pulls the Redis client along for the dev/test Dev Service.
+    implementation 'io.quarkus:quarkus-redis-cache'
+    implementation 'io.quarkiverse.amazonservices:quarkus-amazon-s3'
+    implementation "software.amazon.awssdk:url-connection-client"
+    testImplementation 'io.quarkus:quarkus-junit5'
+    testImplementation 'io.quarkus:quarkus-junit5-mockito'
+    testImplementation 'io.quarkus:quarkus-test-security'
+    testImplementation 'io.quarkus:quarkus-jacoco'
+    testImplementation 'io.rest-assured:rest-assured'
+    // RestAssured's .as(Dto.class) builds its own Jackson ObjectMapper and only
+    // gets java.time support if this module happens to be on the classpath. The
+    // application itself never uses Jackson (JSON-B), so the module needs
+    // declaring here explicitly rather than riding in transitively by accident.
+    testImplementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+    testImplementation 'com.tngtech.archunit:archunit-junit5:1.4.1'
+    testImplementation 'org.awaitility:awaitility:4.2.2'
+
+    mockitoAgent enforcedPlatform("${quarkusPlatformGroupId}:${quarkusPlatformArtifactId}:${quarkusPlatformVersion}")
+    mockitoAgent('org.mockito:mockito-core') {
+        transitive = false
+    }
+}
+
+group = 'de.ingoschindler'
+version = '1.0.0-SNAPSHOT'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+// ---- CI knobs -----------------------------------------------------------
+// -Pshards=N -Pshard=I  fan the suite out over N runners, I-th slice each.
+// -Pcoverage            attach the JaCoCo agents and build the report. Off by
+//                       default — the agent costs ~10-20% of test wall time and
+//                       only main-branch runs publish coverage.
+// -PforkEvery=N         override the worker-JVM recycling interval (see the
+//                       quarkusRuntimeTest comment below).
+def testShards = (project.findProperty('shards') ?: '1') as int
+def testShard = (project.findProperty('shard') ?: '0') as int
+def coverageEnabled = project.hasProperty('coverage')
+
+// Slices by class-name hash against each task's candidate class files at
+// execution time; a `filter {}` block would need the names at configuration
+// time, before compileTestJava has run. Nested classes follow their outer
+// class so an @Nested block never lands in a different shard than its parent.
+//
+// The hash spreads class *count* evenly but knows nothing about cost, and cost
+// here is dominated by @TestProfile classes (each forces a Quarkus
+// re-augmentation). Rebalance by changing the shard count and re-checking
+// against real CI timings, not by hand-assigning.
+def applyShard = { Test t ->
+    if (testShards <= 1) {
+        return
+    }
+    t.exclude { element ->
+        def path = element.path
+        if (element.directory || !path.endsWith('.class')) {
+            return false
+        }
+        def fqcn = path.substring(0, path.length() - 6).replace('/', '.')
+        def outer = fqcn.contains('$') ? fqcn.substring(0, fqcn.indexOf('$')) : fqcn
+        Math.floorMod(outer.hashCode(), testShards) != testShard
+    }
+}
+
+test {
+    systemProperty "java.util.logging.manager", "org.jboss.logmanager.LogManager"
+    // Reuse is opt-in globally (~/.testcontainers.properties) for fast quarkusDev
+    // restarts, but reuse containers skip Ryuk and leak forever across IT runs
+    // whose hash never matches (different @TestProfile fixtures each time).
+    // Force-disable it here so `test`/`quarkusRuntimeTest` always get reaped.
+    systemProperty "testcontainers.reuse.enable", "false"
+    // Quarkus's ConfigLauncherSession (a JUnit5 LauncherSessionListener) probes
+    // Docker on every forked test JVM before tag filtering even runs, regardless
+    // of whether a @QuarkusTest ends up executing in that fork. This task never
+    // runs @QuarkusTest, so devservices are never needed — disable them outright,
+    // which also makes any @QuarkusTest that leaks in here fail loudly instead of
+    // silently touching Docker.
+    systemProperty "quarkus.devservices.enabled", "false"
+    jvmArgs "--add-opens", "java.base/java.lang=ALL-UNNAMED", "-javaagent:${configurations.mockitoAgent.asPath}"
+    // Without an explicit ceiling each fork sizes its heap ergonomically off
+    // whatever the shared CI runner looks like at that instant, which makes this
+    // task fail with "Java heap space" intermittently on commits that never
+    // touched a single Java file. maxHeapSize replaces that guesswork with a
+    // fixed budget: 5120m Gradle daemon (gradle.properties) + 2 forks * 1536m =
+    // 8192m, comfortably under a 16GB CI box.
+    maxHeapSize = '1536m'
+    // Pure in-JVM tests, no shared fixtures and no Docker — safe to fan out.
+    // Half the cores, not all: each fork pays a JVM startup and the suite is
+    // already short, so oversubscribing costs more than it saves.
+    maxParallelForks = Math.max(1, Runtime.runtime.availableProcessors().intdiv(2))
+    jacoco {
+        enabled = coverageEnabled
+    }
+    if (coverageEnabled) {
+        finalizedBy jacocoTestReport
+    }
+    applyShard(delegate)
+    useJUnitPlatform {
+        excludeTags 'io.quarkus.test.junit.QuarkusTest'
+    }
+    testLogging {
+        events "failed", "skipped"
+        exceptionFormat "short"
+    }
+    afterSuite { desc, result ->
+        if (!desc.parent) {
+            println "\n${name}: ${result.testCount} tests, ${result.successfulTestCount} passed, " +
+                    "${result.failedTestCount} failed, ${result.skippedTestCount} skipped"
+        }
+    }
+}
+
+// @QuarkusTest carries @Tag("io.quarkus.test.junit.QuarkusTest") itself (see
+// io.quarkus.test.junit.QuarkusTest source) — no custom tagging needed to split
+// on it. Isolated in its own Test task/JVM because repeated Quarkus context
+// restarts across many @TestProfile fingerprints in one long-lived JVM (the
+// default `test` task's single forked process) accumulate metaspace/native
+// memory and eventually OOM mid-run. This is inherent to Quarkus's per-profile
+// re-augmentation, not a misconfiguration here — every distinct @TestProfile
+// forces a fresh QuarkusClassLoader generation in the same JVM. forkEvery
+// periodically restarts the worker JVM to reclaim that memory; maxHeapSize
+// gives it more room up front. MaxMetaspaceSize is bounded explicitly so a
+// runaway fork fails fast and cleanly instead of thrashing the whole host.
+//
+// forkEvery is a `-PforkEvery=` knob because each recycle costs a full Quarkus
+// augmentation plus fresh Dev Services containers. `-PforkEvery=0` is not the
+// answer: it OOMs the worker's metaspace partway through a large suite.
+tasks.register('quarkusRuntimeTest', Test) {
+    group = 'verification'
+    description = 'Runs @QuarkusTest-tagged tests in their own JVM(s), isolated from plain unit tests.'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    systemProperty "java.util.logging.manager", "org.jboss.logmanager.LogManager"
+    jvmArgs "--add-opens", "java.base/java.lang=ALL-UNNAMED", "-javaagent:${configurations.mockitoAgent.asPath}", "-XX:MaxMetaspaceSize=768m"
+    maxHeapSize = '3g'
+    forkEvery = (project.findProperty('forkEvery') ?: '30') as int
+    // quarkus-jacoco instruments the @QuarkusTest runtime separately from the
+    // Gradle jacoco plugin, so both have to be switched off to drop the agent.
+    systemProperty "quarkus.jacoco.enabled", coverageEnabled.toString()
+    jacoco {
+        enabled = coverageEnabled
+    }
+    if (coverageEnabled) {
+        finalizedBy jacocoTestReport
+    }
+    applyShard(delegate)
+    useJUnitPlatform {
+        includeTags 'io.quarkus.test.junit.QuarkusTest'
+    }
+    testLogging {
+        events "failed", "skipped"
+        exceptionFormat "short"
+    }
+    afterSuite { desc, result ->
+        if (!desc.parent) {
+            println "\n${name}: ${result.testCount} tests, ${result.successfulTestCount} passed, " +
+                    "${result.failedTestCount} failed, ${result.skippedTestCount} skipped"
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('quarkusRuntimeTest')
+}
+
+jacocoTestReport {
+    executionData fileTree(layout.buildDirectory).include('jacoco/*.exec')
+    reports {
+        html.required = true
+        xml.required = true
+    }
+}
+
+// Code formatting (auto-fix: ./gradlew spotlessApply). spotlessCheck runs on `check`/`build`.
+spotless {
+    java {
+        target 'src/main/java/**/*.java', 'src/test/java/**/*.java'
+        eclipse('4.36').configFile('config/spotless/eclipse-formatter.xml')
+        removeUnusedImports()
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+}
+
+// Semantic/structural lint only; formatting is owned by Spotless. Runs on `check`/`build`.
+checkstyle {
+    toolVersion = '13.4.2'
+    configFile = file('config/checkstyle/checkstyle.xml')
+    ignoreFailures = false
+    maxWarnings = 0
+}
+
+compileJava {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << '-parameters' << '-Xlint:deprecation'
+}
+
+compileTestJava {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << '-parameters'
+}

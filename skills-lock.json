@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "skills": {
+    "keycloak-administration": {
+      "source": "dauquangthanh/hanoi-rainbow",
+      "sourceType": "github",
+      "skillPath": "skills/keycloak-administration/SKILL.md",
+      "computedHash": "f2d09b4f4fd0ced095c82713bdab711257577291a2502a29143b3c3dd2b10cfa"
+    },
+    "quarkus": {
+      "source": "b6k-dev/quarkus-skill",
+      "sourceType": "github",
+      "skillPath": "skill/quarkus/SKILL.md",
+      "computedHash": "e136388e9df0d7854c5a9e07d25df94373e3237884036c275958dbd3fd6332e6"
+    },
+    "quarkus-panache-smells": {
+      "source": "emvnuel/skill.md",
+      "sourceType": "github",
+      "skillPath": "quarkus-panache/SKILL.md",
+      "computedHash": "a638f6a9e92e5f07ca21b64ac291592fc211c0582d376ef61984669972a36725"
+    }
+  }
+}

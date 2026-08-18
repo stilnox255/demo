@@ -1,0 +1,25 @@
+# Scrape config for the optional `monitoring` compose profile.
+#
+# On a host that already runs Prometheus, do not start this profile — attach that
+# Prometheus to the external monitoring_net instead and point it at the same
+# targets. Two Prometheis scraping the same endpoints is double load and two
+# disagreeing sources of truth.
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+
+scrape_configs:
+  # Port 9000, not 8080: metrics live on the management interface so they are not
+  # reachable through the public router (see application.properties).
+  - job_name: starter-backend
+    metrics_path: /q/metrics
+    static_configs:
+      - targets: ["backend:9000"]
+
+  - job_name: postgres
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+
+  - job_name: redis
+    static_configs:
+      - targets: ["redis-exporter:9121"]

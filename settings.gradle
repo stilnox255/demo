@@ -1,0 +1,16 @@
+pluginManagement {
+    repositories {
+        mavenCentral()
+        gradlePluginPortal()
+        mavenLocal()
+    }
+    plugins {
+        id "${quarkusPluginId}" version "${quarkusPluginVersion}"
+    }
+}
+rootProject.name = 'starter'
+
+// Capacity tests live in-repo as their own module (ADR-43). Gatling brings its
+// own source set and a Scala/Java toolchain of its own, which is exactly why it
+// is a separate project rather than a source set of the backend.
+include 'load-test'

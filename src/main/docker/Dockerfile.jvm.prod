@@ -1,0 +1,51 @@
+####
+# Production image for JVM mode.
+#
+# Expects a pre-assembled application: run `./gradlew quarkusBuild` first. The
+# image packages an artifact that has already been tested rather than compiling
+# from source here (ADR-38) — a container image step is not the place to find out
+# that the tests fail.
+#
+#   ./gradlew quarkusBuild
+#   docker image build -f src/main/docker/Dockerfile.jvm.prod -t starter-backend:latest .
+###
+FROM eclipse-temurin:25-jre-jammy
+
+# MaxRAMPercentage rather than a fixed -Xmx: the container memory limit lives in
+# the compose file, and the JVM should follow it instead of being told the same
+# number twice in two places that then disagree.
+ENV LANGUAGE='en_US:en' \
+    JAVA_OPTS="-Dquarkus.http.host=0.0.0.0 \
+               -Djava.util.logging.manager=org.jboss.logmanager.LogManager \
+               -XX:+UseG1GC \
+               -XX:MaxGCPauseMillis=100 \
+               -XX:+UseStringDeduplication \
+               -XX:+ParallelRefProcEnabled \
+               -XX:MaxRAMPercentage=75.0 \
+               -XX:InitialRAMPercentage=50.0"
+
+WORKDIR /deployments
+
+# Non-root, with a fixed UID. Fixed because the deployment's secret files have to
+# be readable by it, and "whatever the base image happens to assign" is not
+# something a compose file can rely on.
+RUN groupadd -r quarkus -g 1001 && useradd -r -g quarkus -u 1001 quarkus
+
+# Four COPY steps, coarsest first: lib/ holds dependencies and changes rarely,
+# app/ holds this project's classes and changes on every commit. Copying the
+# whole directory in one step would invalidate the dependency layer every time.
+COPY --chown=1001:1001 build/quarkus-app/lib/ /deployments/lib/
+COPY --chown=1001:1001 build/quarkus-app/*.jar /deployments/
+COPY --chown=1001:1001 build/quarkus-app/app/ /deployments/app/
+COPY --chown=1001:1001 build/quarkus-app/quarkus/ /deployments/quarkus/
+
+USER 1001
+
+EXPOSE 8080
+
+# No HEALTHCHECK here: the compose file mounts healthcheck.sh and probes the
+# management port instead. Defining one here too would mean two definitions of
+# "healthy", and the image's copy would silently win where the compose file is
+# not used.
+
+ENTRYPOINT ["java", "-jar", "/deployments/quarkus-run.jar"]

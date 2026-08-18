@@ -1,0 +1,56 @@
+# Dev-only services that Quarkus Dev Services does not provide.
+#
+# Postgres, Keycloak, Redis and the S3 emulator all come from Dev Services and
+# are deliberately absent here: `./gradlew quarkusDev` starts and stops them with
+# the application, so there is nothing to remember and nothing left running.
+#
+# What is left are the two things Dev Services cannot do:
+#
+#   rustfs     a persistent S3 store, when you want uploads to survive a restart.
+#              Skip it and the Dev Services emulator takes over — see the
+#              endpoint-override comment in application.properties.
+#   dev-proxy  one origin for frontend and backend, so the browser sees the same
+#              paths locally as it does behind Traefik in production. Without it
+#              the frontend runs on :5173, the API on :8080, and every OIDC
+#              redirect and cookie behaves differently than it will in production.
+#
+# Quarkus starts this file itself as a compose dev service, so `./gradlew quarkusDev`
+# is the only command needed. Starting it by hand also works and is what you want when
+# the services should outlive a dev-mode restart:
+#
+#   docker compose -f compose-devservices.yml up -d
+#
+# The compose start is all-or-nothing: if a published port below is taken, the bind
+# fails and dev mode does not boot. DEV_PROXY_PORT exists for exactly that, because :80
+# is frequently already in use on a developer machine.
+services:
+  rustfs:
+    image: rustfs/rustfs:latest
+    ports:
+      - "9000:9000"  # S3 API
+      - "9001:9001"  # Console
+    environment:
+      - RUSTFS_ACCESS_KEY=${RUSTFS_ACCESS_KEY:-dev-access-key}
+      - RUSTFS_SECRET_KEY=${RUSTFS_SECRET_KEY:-dev-secret-key}
+    volumes:
+      - rustfs_data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'nc -z localhost 9000 || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # Mirrors the production path routing: /api, /q and /.well-known to the
+  # backend, everything else to Vite.
+  dev-proxy:
+    image: nginx:1.27-alpine
+    ports:
+      - "${DEV_PROXY_PORT:-80}:80"
+    volumes:
+      - ./compose-devservices/dev-nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  rustfs_data:

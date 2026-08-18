@@ -1,0 +1,31 @@
+name: Cleanup Registry
+
+on:
+  workflow_dispatch:
+    inputs:
+      keep:
+        description: 'Number of versioned tags to keep per repository (plus *latest aliases)'
+        required: false
+        default: '3'
+      dry_run:
+        description: 'List deletion candidates without deleting'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    name: cleanup-registry
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Run cleanup-registry.sh
+        env:
+          REGISTRY_USER: ${{ secrets.SELFHOSTED_REGISTRY_USER }}
+          REGISTRY_PASSWORD: ${{ secrets.SELFHOSTED_REGISTRY_TOKEN }}
+          KEEP: ${{ inputs.keep }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: ./cleanup-registry.sh

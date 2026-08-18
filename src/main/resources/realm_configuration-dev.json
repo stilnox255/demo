@@ -1,0 +1,109 @@
+{
+  "realm": "starter",
+  "enabled": true,
+  "displayName": "Starter Dev",
+  "accessTokenLifespan": 1800,
+  "ssoSessionIdleTimeout": 3600,
+  "ssoSessionMaxLifespan": 28800,
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "rememberMe": true,
+  "verifyEmail": false,
+  "loginWithEmailAllowed": true,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": true,
+  "bruteForceProtected": false,
+  "sslRequired": "none",
+  "roles": {
+    "realm": [
+      {
+        "name": "admin",
+        "composite": false,
+        "clientRole": false
+      },
+      {
+        "name": "user",
+        "composite": false,
+        "clientRole": false
+      }
+    ]
+  },
+  "users": [
+    {
+      "username": "admin",
+      "enabled": true,
+      "firstName": "Admin",
+      "lastName": "User",
+      "email": "admin@localhost",
+      "emailVerified": true,
+      "realmRoles": [
+        "admin",
+        "user"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "user",
+      "enabled": true,
+      "firstName": "Test",
+      "lastName": "User",
+      "email": "user@localhost",
+      "emailVerified": true,
+      "realmRoles": [
+        "user"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "user",
+          "temporary": false
+        }
+      ]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "backend",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "dev-secret-123",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "publicClient": false,
+      "redirectUris": [],
+      "webOrigins": [],
+      "fullScopeAllowed": false
+    },
+    {
+      "clientId": "frontend-client",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "redirectUris": [
+        "http://localhost:5173/*",
+        "http://localhost:8080/*",
+        "http://localhost/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5173",
+        "http://localhost:8080",
+        "http://localhost"
+      ]
+    }
+  ],
+  "defaultRoles": [
+    "user"
+  ]
+}

@@ -1,0 +1,232 @@
+name: CI
+
+# PRs and pushes to main only (ADR-33). Every branch push would double the runs
+# for no extra signal — a PR already covers the branch, and the free tier's
+# minutes are the constraint that shapes this file.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Cancel superseded runs on a PR branch; never on main, so every merge commit
+# keeps one completed run as an audit trail.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+  actions: read   # so the reusable image workflow can download the artifact
+  checks: write   # so test results can be published as a check run
+
+jobs:
+  # Path filtering, so a frontend-only change does not pay for the backend suite
+  # (ADR-33). `.github/**` is in every filter on purpose: a change to CI itself
+  # has to run everything, or the change is untested.
+  changes:
+    name: detect changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      webapp: ${{ steps.filter.outputs.webapp }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'src/**'
+              - 'build.gradle'
+              - 'settings.gradle'
+              - 'gradle/**'
+              - 'gradle.properties'
+              - 'config/**'
+              - '.github/**'
+            webapp:
+              - 'web-app/**'
+              - '.github/**'
+
+  # Split three ways rather than one `check` job: lint answers in seconds, unit
+  # tests in under a minute, and the @QuarkusTest suite fans out. One job would
+  # make every failure wait for the slowest part.
+  backend-lint:
+    name: backend lint
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - run: ./gradlew spotlessCheck checkstyleMain checkstyleTest
+
+  backend:
+    name: backend
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      # `test` is the plain-JUnit task (@QuarkusTest is excluded by tag and runs
+      # in backend-it). `quarkusBuild` has to be requested explicitly — it is not
+      # a dependency of `check`, so without it build/quarkus-app/ never exists and
+      # the artifact upload below would silently upload nothing.
+      - run: ./gradlew test quarkusBuild
+      - name: Upload backend artifact
+        if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: backend-quarkus-app
+          path: build/quarkus-app/
+          retention-days: 1
+      - name: Test summary
+        if: always()
+        uses: mikepenz/action-junit-report@d9f48fc87bc235f7e214acf696ca5abc0a986f16 # v6.4.2
+        with:
+          report_paths: build/test-results/test/TEST-*.xml
+          # Distinct per job: every reporting job would otherwise publish under
+          # the same default check name and overwrite the others.
+          check_name: unit tests
+          job_summary: true
+          detailed_summary: true
+          group_suite: true
+          require_tests: false
+
+  backend-it:
+    name: backend it (shard ${{ matrix.shard }})
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1]
+    # Postgres and the S3 emulator run as job services, not as Dev Services
+    # containers (ADR-34, ADR-36). Dev Services restarts them on every Quarkus
+    # re-augmentation, which for a suite with several test profiles means a
+    # create/destroy cycle per profile. A job service starts once, in parallel
+    # with checkout and the Gradle cache restore.
+    #
+    # The trade: Flyway has to clean the schema itself, which a throwaway
+    # container gave for free. Hence the two clean flags below.
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: quarkus
+          POSTGRES_PASSWORD: quarkus
+          POSTGRES_DB: quarkus
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+      floci:
+        image: floci/floci:1.6.0
+        ports:
+          - 4566:4566
+    env:
+      QUARKUS_DEVSERVICES_ENABLED: 'false'
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://localhost:5432/quarkus
+      QUARKUS_DATASOURCE_USERNAME: quarkus
+      QUARKUS_DATASOURCE_PASSWORD: quarkus
+      QUARKUS_S3_ENDPOINT_OVERRIDE: http://localhost:4566
+      QUARKUS_FLYWAY_CLEAN_AT_START: 'true'
+      QUARKUS_FLYWAY_CLEAN_DISABLED: 'false'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      # Keep -Pshards equal to the length of the matrix above, or part of the
+      # suite silently never runs.
+      - run: ./gradlew quarkusRuntimeTest -Pshards=2 -Pshard=${{ matrix.shard }}
+      - name: Test summary
+        if: always()
+        uses: mikepenz/action-junit-report@d9f48fc87bc235f7e214acf696ca5abc0a986f16 # v6.4.2
+        with:
+          report_paths: build/test-results/quarkusRuntimeTest/TEST-*.xml
+          check_name: it shard ${{ matrix.shard }}
+          job_summary: true
+          detailed_summary: true
+          group_suite: true
+          require_tests: false
+
+  web-app:
+    name: web-app
+    needs: changes
+    if: ${{ needs.changes.outputs.webapp == 'true' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web-app
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web-app/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - name: Upload frontend artifact
+        if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: web-app-dist
+          path: web-app/dist/
+          retention-days: 1
+      # Headless unit tests only. The Playwright suite boots the full dev stack
+      # including Keycloak, which is a deliberate manual step rather than a CI job
+      # on the free tier.
+      - run: npm run test:unit
+
+  # Both push jobs consume the artifact the test jobs produced rather than
+  # rebuilding (ADR-38). What ships is exactly what was tested; a rebuild is a
+  # different artifact with an untested provenance.
+  backend-push:
+    name: push backend image
+    needs: [backend, backend-it, backend-lint]
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+    uses: ./.github/workflows/build-push-image.yml
+    with:
+      image-name: ingoschindler/starter-backend
+      dockerfile: src/main/docker/Dockerfile.jvm.prod
+      context: .
+      tag-suffix: jvm-
+      artifact-name: backend-quarkus-app
+      artifact-path: build/quarkus-app
+    secrets:
+      registry-user: ${{ secrets.SELFHOSTED_REGISTRY_USER }}
+      registry-token: ${{ secrets.SELFHOSTED_REGISTRY_TOKEN }}
+
+  frontend-push:
+    name: push frontend image
+    needs: web-app
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+    uses: ./.github/workflows/build-push-image.yml
+    with:
+      image-name: ingoschindler/starter-frontend
+      dockerfile: web-app/Dockerfile
+      context: web-app
+      artifact-name: web-app-dist
+      artifact-path: web-app/dist
+    secrets:
+      registry-user: ${{ secrets.SELFHOSTED_REGISTRY_USER }}
+      registry-token: ${{ secrets.SELFHOSTED_REGISTRY_TOKEN }}
