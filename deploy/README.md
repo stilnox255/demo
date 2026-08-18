@@ -12,9 +12,10 @@ outlive any single application. They have to exist first:
 | Prerequisite | Why it is not here |
 |---|---|
 | **Traefik**, in `network_mode: host`, with a `letsencrypt` cert resolver and a `redirect-https@file` middleware | One proxy per host serves every application. A second one would fight it for :443. |
-| **Keycloak** with a realm and a `backend` client | An identity provider is shared infrastructure with its own lifecycle and its own database. |
+| **Keycloak** with the realm from `keycloak-realm.json` in this directory | An identity provider is shared infrastructure with its own lifecycle and its own database, so this stack does not run it — but the realm it expects is versioned here. Adjust the domain, import it, and take the `backend` client secret from the result. See `DEPLOYMENT.md`. |
 | **`monitoring_net`** — `docker network create monitoring_net` | An external network so whatever scrapes the exporters can join it and survive a `compose down`. |
 | **`traefik-security-headers.yml`** copied into the proxy's dynamic-config directory | A middleware referenced by name that is not present makes every router fail to load. See the file's own header. |
+| **A log collector** on `monitoring_net`, reachable under `LOG_COLLECTOR_ENDPOINT` (default `alloy:5140`) | One collector per host, like the proxy. The backend joins `monitoring_net`, so a collector living in another stack is reachable by name. Optional: syslog here is UDP and best-effort, so with nothing listening the JSON stream is simply dropped — the plain-text console log stays intact and `docker compose logs` is unaffected. |
 
 Metrics and dashboards are optional here: with nothing to attach to, start the
 `monitoring` profile (below) instead.

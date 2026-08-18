@@ -36,8 +36,35 @@ Plus, from your infrastructure setup:
 
 - **Traefik** in `network_mode: host`, with a `letsencrypt` cert resolver and a
   `redirect-https@file` middleware.
-- **Keycloak**, reachable at `AUTH_DOMAIN`, with a realm and a confidential `backend`
-  client. Copy that client's secret — step 3 needs it.
+- **Keycloak**, reachable at `AUTH_DOMAIN`, with the realm from
+  `keycloak-realm.json` in this directory. It is the realm the compose file already
+  references by name, client ids included. Edit the two `app.example.com` occurrences
+  to your domain, then import it through *Create realm -> Browse* in the admin
+  console, or:
+
+  ```bash
+  kcadm.sh config credentials --server https://auth.example.com \
+      --realm master --user admin
+  kcadm.sh create realms -f keycloak-realm.json
+  ```
+
+  It ships **no users and no client secret**: Keycloak mints the `backend` secret on
+  import, and the first admin is yours to create. Afterwards, *Clients -> backend ->
+  Credentials* gives you the secret step 3 needs, and *Users* is where you create the
+  first account and grant it the `admin` realm role.
+
+  This is not the dev realm. `src/main/resources/realm_configuration-dev.json` has
+  two throwaway logins, `sslRequired: none` and no password policy at all, because it
+  is thrown away on every restart. This one carries the settings from a Keycloak realm
+  that is actually in production: a password policy, brute-force lockout with a
+  backoff, TLS for anything not on a private address, and a five-minute access token.
+  Self-registration is the one place it deviates on purpose. Turn it back on in
+  *Realm settings -> Login* if your product wants it.
+
+  Everything Keycloak creates by itself on import is deliberately not in the file:
+  the built-in clients, the authentication flows, the default client scopes and the
+  key providers. A realm export contains all of it, several hundred lines of it, and
+  none of it survives review because nobody can tell which parts were changed.
 - **`traefik-security-headers.yml`** from this directory, copied into Traefik's
   dynamic-config directory (typically `/srv/proxy/dynamic/`). Traefik reloads dynamic
   files by itself. A middleware referenced by name that is not present makes **every**
