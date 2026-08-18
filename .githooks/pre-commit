@@ -48,7 +48,9 @@ for f in "${staged_java[@]}"; do
 done
 
 echo "pre-commit: spotlessCheck (staged files only) + checkstyle ..."
-if ! ./gradlew --offline --quiet "-PspotlessFiles=${spotless_regex}" spotlessCheck checkstyleMain checkstyleTest; then
+# No --offline: on a fresh clone the Gradle cache is cold, and a resolution failure
+# here would surface as "pre-commit FAILED" and read like a formatting violation.
+if ! ./gradlew --quiet "-PspotlessFiles=${spotless_regex}" spotlessCheck checkstyleMain checkstyleTest; then
     echo
     echo "pre-commit FAILED."
     echo "  Formatting:  ./gradlew spotlessApply -PspotlessFiles=\"${spotless_regex}\""
