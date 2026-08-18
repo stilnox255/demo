@@ -30,6 +30,17 @@ An anonymous request gets no `userId` key at all rather than a placeholder: an
 empty value in a log query is indistinguishable from a missing one, and "no user"
 is a fact worth being able to filter on.
 
+**Authentication is lazy** — `quarkus.http.auth.proactive=false` — and that is what
+makes the filter's job possible rather than harmful. Every path is permit-all at the
+HTTP layer, with `@RolesAllowed` doing the real gating. Under proactive authentication
+the framework validates any `Authorization` header up front, so a stale or malformed
+token turns a public request into a 401 before it reaches the endpoint; the
+signed-download path, which authorizes by a token in the URL and ignores the header,
+would break for anyone whose browser still holds an expired one. Lazy means resolving
+the identity is what triggers validation, so the filter has to resolve it defensively:
+an `AuthenticationException` there is treated exactly like an anonymous request, and
+authorization stays where it belongs, on the endpoints that declare it.
+
 **Propagation is pinned explicitly** to `tracecontext,baggage` rather than
 inherited. Propagation is part of the contract with callers, so it should not
 change because a library default changed.

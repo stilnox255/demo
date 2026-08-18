@@ -45,6 +45,13 @@ class UserIdMdcFilterTest {
         // quarkus.http.auth.proactive=false, merely resolving SecurityIdentity is what triggers
         // credential validation. A malformed/unknown bearer token on this permit-all resource must
         // not turn into a hard 401 — it must be treated the same as an anonymous request.
+        //
+        // What this asserts is the filter's own defensive catch. It does NOT exercise the
+        // proactive setting: %test disables the OIDC tenant (see src/test/resources), so no
+        // credential validation happens here at all and this stays green whatever
+        // quarkus.http.auth.proactive says. Enabling the tenant would mean a Keycloak container
+        // per test class, which ADR-36 rules out. The setting itself is verified against a real
+        // provider in dev mode.
         given().header("Authorization", "Bearer bogus-garbage-token").when().get("/test/mdc/whoami").then()
                 .statusCode(200).body(is("none"));
     }
