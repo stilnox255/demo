@@ -21,8 +21,9 @@ Do not introduce `boundary` / `control` / `entity` packages in the backend — t
 a different layout and the ArchUnit suite rejects it. (The *frontend* does use
 boundary/control/entity; that is a separate convention, see `ADR-28`.)
 
-The `.claude/skills/backend/` skill is the authoritative source for backend coding
-rules. Architectural rules are enforced by
+The `backend` skill (from the `architecture` plugin — see
+`docs/guidelines/_index.md`) is the authoritative source for backend coding rules.
+Architectural rules are enforced by
 `src/test/java/de/ingoschindler/architecture/HexagonalArchitectureTest.java` — a
 violation fails the build, not just review.
 
@@ -85,7 +86,9 @@ the suite.
 ## Project Rules
 
 - Do not create or change files when opening the project — wait for instructions
-- Ask before changing `build.gradle` or adding a dependency (`use-the-platform.md`)
+- Ask before changing `build.gradle` or adding a dependency (`use-the-platform.md`,
+  injected every session by the `book-guidelines` plugin — see
+  `docs/guidelines/_index.md`)
 - Keep designs KISS/YAGNI — ask before adding optional features or extension points
 - Every non-obvious decision gets an ADR, with its alternatives and its cost
 
