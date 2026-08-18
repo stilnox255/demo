@@ -111,16 +111,9 @@ What to keep untouched unless you have a reason: `kernel/`, `infrastructure/`,
 
 ## Guidelines
 
-Two policies are binding and loaded into every agent session
-([`docs/guidelines/`](docs/guidelines/)):
-
-- **release-it.md** — production readiness: timeouts, bounded retries, back
-  pressure, failure isolation, observability. Every resilience decision in the ADRs
-  traces back to it.
-- **use-the-platform.md** — the runtime is the default toolbox; a new dependency has
-  to clear a bar; boring code wins; testability is a design signal.
-
-The remaining files there are contextual and loaded on demand as skills.
+Binding, always-on policy lives in [`docs/guidelines/`](docs/guidelines/), imported
+from `CLAUDE.md`. Policy that only applies in specific contexts belongs in a skill
+under `.claude/skills/` instead — see `docs/guidelines/_index.md` for both.
 
 ## License
 

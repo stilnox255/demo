@@ -1,12 +1,7 @@
 # Backend — Quarkus-specific Rules
 
-When generating or reviewing backend code, use the `backend` skill (`/backend`).
-
-Also use the `quarkus` skill (framework guidance) and the `quarkus-panache-smells`
-skill (Panache code smells) for any Quarkus or Panache work in this tree.
-
-The rules below are **project-specific overrides and additions** to the backend
-skill.
+Rules for backend code, on top of the layering in
+`docs/adr/ADR-01-hexagonal-architecture.md`.
 
 ## Naming
 

@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Blocks bare/unscoped gradlew build|check|test|quarkusRuntimeTest invocations.
-# See .claude/skills/execute-tasks/SKILL.md "Test Scope Policy" for the rationale:
+# Blocks bare/unscoped gradlew build|check|test|quarkusRuntimeTest invocations:
 # `build`/`check` always drag in the full quarkusRuntimeTest suite, and running
 # `test`/`quarkusRuntimeTest` without --tests runs every test in that task.
 set -euo pipefail
@@ -17,7 +16,7 @@ fi
 
 block() {
     echo "Blocked: $1" >&2
-    echo "See .claude/skills/execute-tasks/SKILL.md 'Test Scope Policy' — use --tests to scope the run." >&2
+    echo "Use --tests to scope the run." >&2
     exit 2
 }
 

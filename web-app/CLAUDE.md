@@ -1,10 +1,7 @@
 # Frontend — Project-specific Rules
 
-When generating or reviewing frontend code, use the `frontend` skill (from the
-`architecture` plugin — see `docs/guidelines/_index.md`). New views must match the
-look and feel of the existing ones — no `DESIGN.md` has actually been written yet to
-serve as source of truth for that; this line pointed at one before the `frontend`
-skill moved into the plugin too.
+New views must match the look and feel of the existing ones — no `DESIGN.md` exists
+yet to serve as source of truth for that.
 
 ## Commands
 
