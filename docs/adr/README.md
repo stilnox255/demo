@@ -62,6 +62,7 @@ the reason the new one looks the way it does.
 | [23](ADR-23-mdc-correlation-and-otel-tracing-config.md) | MDC Correlation and Explicit Tracing Configuration |
 | [24](ADR-24-configuration-exclusively-via-environment.md) | Configuration Exclusively via Environment Variables |
 | [41](ADR-41-snapshot-cache-with-etag-in-the-cache-entry.md) | Snapshot Cache with the ETag in the Cache Entry |
+| [45](ADR-45-local-jwt-validation-instead-of-introspection.md) | Tokens Are Validated Locally, Never Introspected |
 
 ## Frontend
 
