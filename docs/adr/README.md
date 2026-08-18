@@ -50,6 +50,7 @@ the reason the new one looks the way it does.
 | [17](ADR-17-storage-ref-as-a-normalized-table.md) | The Storage Catalogue Is a Normalized Table |
 | [18](ADR-18-one-storage-ref-per-upload.md) | One Catalogue Row per Upload, Never Shared |
 | [19](ADR-19-hmac-signed-download-tokens.md) | HMAC-Signed Download Tokens in API Responses |
+| [44](ADR-44-one-object-store-emulator-for-dev-and-test.md) | One Object-Store Emulator for Dev and Test |
 
 ## Resilience and operations
 
