@@ -363,9 +363,11 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # S3-compatible object storage.
+  # S3-compatible object storage. Pinned, and still a release candidate upstream —
+  # `latest` moved twice unnoticed while this file carried it, which is the whole
+  # argument. Bump deliberately, and smoke-test an upload after you do.
   rustfs:
-    image: rustfs/rustfs:latest
+    image: rustfs/rustfs:1.0.0-rc.2
     secrets:
       - source: s3_access_key
         mode: 0444
@@ -407,7 +409,7 @@ services:
   # Creates the bucket on first boot and exits. Idempotent, so a re-run after a
   # partial deploy is safe — which is the only kind of one-shot job worth having.
   rustfs-init:
-    image: amazon/aws-cli:latest
+    image: amazon/aws-cli:2.36.25
     depends_on:
       rustfs:
         condition: service_healthy
@@ -427,7 +429,7 @@ services:
       - no-new-privileges:true
 
   postgres-exporter:
-    image: prometheuscommunity/postgres-exporter:latest
+    image: prometheuscommunity/postgres-exporter:v0.20.1
     environment:
       DATA_SOURCE_URI: postgres:5432/postgres?sslmode=disable
       DATA_SOURCE_USER: postgres
@@ -452,7 +454,7 @@ services:
         max-file: "3"
 
   redis-exporter:
-    image: oliver006/redis_exporter:latest
+    image: oliver006/redis_exporter:v1.89.0
     environment:
       REDIS_ADDR: redis://redis:6379
       REDIS_PASSWORD_FILE: /run/secrets/redis_password
