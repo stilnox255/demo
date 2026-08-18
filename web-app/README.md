@@ -69,8 +69,10 @@ Three directories per feature, and the boundaries are strict (ADR-28):
 ## Tests
 
 ```bash
-npm run test:unit    # vitest + jsdom, files named *.unit.test.js next to the source
-npm test             # Playwright; boots the full dev stack including Keycloak
+npm run test:unit       # vitest + jsdom, files named *.unit.test.js next to the source
+
+npx playwright install  # once per machine; nothing else installs the browsers
+npm test                # Playwright; boots the full dev stack including Keycloak
 ```
 
 The Playwright suite is a deliberate manual step rather than a CI job (ADR-32): it
