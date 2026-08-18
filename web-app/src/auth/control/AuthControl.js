@@ -104,7 +104,7 @@ export async function loadAppConfig() {
         const fallback = {
             authConfig: {
                 clientId: "frontend-client",
-                issuer: "http://localhost:8180/realms/quarkus"
+                issuer: "http://localhost:8180/realms/starter"
             }
         };
         authConfigLoaded(fallback);

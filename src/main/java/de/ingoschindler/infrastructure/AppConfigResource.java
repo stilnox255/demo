@@ -28,7 +28,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 @Tag(name = "App Config")
 public class AppConfigResource {
 
-    @ConfigProperty(name = "quarkus.oidc.auth-server-url", defaultValue = "http://localhost:8180/realms/quarkus")
+    @ConfigProperty(name = "quarkus.oidc.auth-server-url", defaultValue = "http://localhost:8180/realms/starter")
     String issuer;
 
     @ConfigProperty(name = "quarkus.oidc.client-id", defaultValue = "frontend-client")
