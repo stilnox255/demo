@@ -35,9 +35,16 @@ All four mechanisms, because each covers a different hole:
    pick them up. One tab refreshes, every tab benefits, and no tab is logged out by
    another tab's rotation.
 
-When a refresh genuinely fails, the session ends deliberately: state is cleared and
-a toast with a login action is shown, rather than a redirect that would discard
-whatever the user was doing.
+When a refresh genuinely fails, the failure is stated rather than acted on: the
+scheduled refresh is cancelled, a toast with a login action is shown, and the user
+stays on the page they were on. Not a redirect to the provider, and not a silent drop
+to the landing page either — both discard whatever they were doing, and the second one
+does it without saying why. The stored tokens are left in place; the next call
+re-enters the same path, and the toast is raised once until either a refresh succeeds
+or the user logs out.
+
+This holds for both entry points, the page-load probe and a mid-session call. They are
+the same ending and share one function.
 
 ## Rationale
 

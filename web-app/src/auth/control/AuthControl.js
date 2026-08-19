@@ -155,7 +155,12 @@ export async function checkAuth() {
         if (response.status === 401) {
             const refreshed = await refreshTokens();
             if (!refreshed) {
-                logout();
+                // Same ending as the mid-session failure in authenticatedFetch: a
+                // toast with a login action, and the user stays where they are
+                // (ADR-27). Calling logout() here instead would drop them on the
+                // landing page with no statement of what happened, and it is the
+                // only path in the app that ends a session without saying so.
+                sessionExpired();
                 return false;
             }
             return true;
