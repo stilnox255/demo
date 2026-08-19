@@ -12,7 +12,7 @@ outlive any single application. They have to exist first:
 | Prerequisite | Why it is not here |
 |---|---|
 | **Traefik**, in `network_mode: host`, with a `letsencrypt` cert resolver and a `redirect-https@file` middleware | One proxy per host serves every application. A second one would fight it for :443. |
-| **Keycloak** with the realm from `keycloak-realm.json` in this directory | An identity provider is shared infrastructure with its own lifecycle and its own database, so this stack does not run it — but the realm it expects is versioned here. Adjust the domain, import it, and take the `backend` client secret from the result. See `DEPLOYMENT.md`. |
+| **Keycloak** with the realm from `keycloak-realm.json` in this directory | An identity provider is shared infrastructure with its own lifecycle and its own database, so this stack does not run it — but the realm it expects is versioned here. Adjust the domain and import it; there is no secret to copy back, because the backend holds no client credentials (ADR-45). See `DEPLOYMENT.md`. |
 | **`monitoring_net`** — `docker network create monitoring_net` | An external network so whatever scrapes the exporters can join it and survive a `compose down`. |
 | **`traefik-security-headers.yml`** copied into the proxy's dynamic-config directory | A middleware referenced by name that is not present makes every router fail to load. See the file's own header. |
 | **A log collector** on `monitoring_net`, reachable under `LOG_COLLECTOR_ENDPOINT` (default `alloy:5140`) | One collector per host, like the proxy. The backend joins `monitoring_net`, so a collector living in another stack is reachable by name. Optional: syslog here is UDP and best-effort, so with nothing listening the JSON stream is simply dropped — the plain-text console log stays intact and `docker compose logs` is unaffected. |
@@ -26,16 +26,11 @@ Metrics and dashboards are optional here: with nothing to attach to, start the
 # 1. Secrets. Idempotent — an existing file is never overwritten.
 ./setup-secrets.sh
 
-# 2. Replace the Keycloak client secret placeholder with the real value from the
-#    realm. It is minted by Keycloak, so this script cannot generate it: a random
-#    value produces a stack that starts cleanly and fails every login.
-$EDITOR secrets/keycloak_client_secret.txt
-
-# 3. Environment.
+# 2. Environment.
 cp .env.example .env
 $EDITOR .env          # DOMAIN, AUTH_DOMAIN, REGISTRY
 
-# 4. Start.
+# 3. Start.
 docker compose pull
 docker compose up -d
 ```
@@ -43,7 +38,7 @@ docker compose up -d
 Secret files end up `0644` inside a `0700` directory. That is deliberate and
 counter-intuitive: the container's UID is not the host owner, so `0600` makes the file
 unreadable inside the container — and the failure surfaces as an authentication error
-against Postgres or Keycloak, not as a permission error. Another user on the host
+against Postgres or Redis, not as a permission error. Another user on the host
 still cannot reach the files, because they cannot traverse the directory. The
 reasoning is in `setup-secrets.sh` next to the mode.
 
@@ -128,6 +123,7 @@ Suggested cron on the host:
 | `init-db.sh` | one-time role and database creation; Flyway owns the schema |
 | `setup-secrets.sh` | generates missing secrets, never overwrites |
 | `traefik-security-headers.yml` | installed into the host's proxy config (ADR-42) |
+| `keycloak-realm.json` | imported into the host's identity provider (ADR-45) |
 | `DEPLOYMENT.md` | the walkthrough, including a fresh host |
 | `BUILD.md` | how the images are produced |
 | `SECURITY.md` | the hardening checklist and what is deliberately left open |

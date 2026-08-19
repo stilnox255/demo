@@ -107,12 +107,14 @@ revocation window linearly. Five minutes is the point where neither cost dominat
   realm roles into the access token and an audience the backend can check. A realm
   built by hand, without the audience mapper, produces tokens that authenticate and
   then fail authorization for reasons that are hard to see from the backend logs.
-- **The deployment still ships a client secret that nothing reads.**
-  `deploy/docker-compose.yml` sets `KEYCLOAK_CLIENT_ID: backend` with a secret file,
-  while `QUARKUS_OIDC_CLIENT_ID: frontend-client` overrides it from a higher config
-  ordinal. With both introspection paths off, `quarkus.oidc.credentials.secret` is
-  never used. It is a leftover from an introspection-shaped design, it costs a secret
-  to generate and rotate, and removing it is a separate change.
+- **The deployment holds no client credentials, and that is load-bearing.** There is
+  no Keycloak secret to generate, mount, rotate or copy out of the admin console, and
+  the realm needs only one public client. An earlier version of this stack did carry a
+  confidential `backend` client whose secret travelled through compose, the entrypoint
+  and `setup-secrets.sh` into `quarkus.oidc.credentials.secret` — where, with both
+  introspection paths off, nothing ever read it. Dev mode had already been running
+  without one for as long as the profile existed, which is what gave it away. Anyone
+  adding a confidential client back should be able to name the call that needs it.
 
 ## Related
 

@@ -2,7 +2,6 @@
   "realm": "starter",
   "enabled": true,
   "displayName": "Starter",
-
   "sslRequired": "external",
   "registrationAllowed": false,
   "registrationEmailAsUsername": true,
@@ -13,9 +12,7 @@
   "verifyEmail": true,
   "rememberMe": true,
   "userManagedAccessAllowed": false,
-
   "passwordPolicy": "length(7) and upperCase(1) and lowerCase(1) and digits(1) and specialChars(1) and notUsername(undefined) and notEmail(undefined)",
-
   "bruteForceProtected": true,
   "bruteForceStrategy": "MULTIPLE",
   "permanentLockout": false,
@@ -26,12 +23,10 @@
   "minimumQuickLoginWaitSeconds": 60,
   "quickLoginCheckMilliSeconds": 1000,
   "maxTemporaryLockouts": 0,
-
   "defaultSignatureAlgorithm": "RS256",
   "accessTokenLifespan": 300,
   "ssoSessionIdleTimeout": 14400,
   "ssoSessionMaxLifespan": 28800,
-
   "roles": {
     "realm": [
       {
@@ -46,9 +41,7 @@
       }
     ]
   },
-
   "users": [],
-
   "clients": [
     {
       "clientId": "frontend-client",
@@ -100,21 +93,6 @@
           }
         }
       ]
-    },
-    {
-      "clientId": "backend",
-      "name": "Starter Backend",
-      "enabled": true,
-      "protocol": "openid-connect",
-      "publicClient": false,
-      "clientAuthenticatorType": "client-secret",
-      "standardFlowEnabled": false,
-      "implicitFlowEnabled": false,
-      "directAccessGrantsEnabled": false,
-      "serviceAccountsEnabled": true,
-      "fullScopeAllowed": false,
-      "redirectUris": [],
-      "webOrigins": []
     }
   ]
 }

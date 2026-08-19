@@ -37,10 +37,9 @@ services:
       # backend-entrypoint.sh — a URL cannot be composed from a secret file by
       # Quarkus itself.
       REDIS_PASSWORD_FILE: /run/secrets/redis_password
+      # Issuer only. The backend validates tokens against this realm's JWKS keys and
+      # holds no client credentials of its own (ADR-45).
       KEYCLOAK_URL: https://${AUTH_DOMAIN}/realms/${KEYCLOAK_REALM:-starter}
-      KEYCLOAK_CLIENT_ID: backend
-      KEYCLOAK_CLIENT_SECRET_FILE: /run/secrets/keycloak_client_secret
-      QUARKUS_OIDC_CLIENT_ID: frontend-client
       DOWNLOAD_TOKEN_SECRET_FILE: /run/secrets/download_token_secret
       STARTER_API_BASE_URL: https://app.${DOMAIN}
       LOG_COLLECTOR_ENDPOINT: ${LOG_COLLECTOR_ENDPOINT:-alloy:5140}
@@ -57,8 +56,6 @@ services:
       - source: s3_access_key
         mode: 0444
       - source: s3_secret_key
-        mode: 0444
-      - source: keycloak_client_secret
         mode: 0444
       - source: download_token_secret
         mode: 0444
@@ -565,8 +562,6 @@ secrets:
     file: ./secrets/s3_access_key.txt
   s3_secret_key:
     file: ./secrets/s3_secret_key.txt
-  keycloak_client_secret:
-    file: ./secrets/keycloak_client_secret.txt
   download_token_secret:
     file: ./secrets/download_token_secret.txt
   grafana_admin_password:

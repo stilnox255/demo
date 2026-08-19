@@ -38,9 +38,8 @@ Plus, from your infrastructure setup:
   `redirect-https@file` middleware.
 - **Keycloak**, reachable at `AUTH_DOMAIN`, with the realm from
   `keycloak-realm.json` in this directory. It is the realm the compose file already
-  references by name, client ids included. Edit the two `app.example.com` occurrences
-  to your domain, then import it through *Create realm -> Browse* in the admin
-  console, or:
+  references by name. Edit the two `app.example.com` occurrences to your domain, then
+  import it through *Create realm -> Browse* in the admin console, or:
 
   ```bash
   kcadm.sh config credentials --server https://auth.example.com \
@@ -48,10 +47,10 @@ Plus, from your infrastructure setup:
   kcadm.sh create realms -f keycloak-realm.json
   ```
 
-  It ships **no users and no client secret**: Keycloak mints the `backend` secret on
-  import, and the first admin is yours to create. Afterwards, *Clients -> backend ->
-  Credentials* gives you the secret step 3 needs, and *Users* is where you create the
-  first account and grant it the `admin` realm role.
+  It ships **no users**, and there is no secret to copy afterwards: the backend
+  validates tokens against this realm's public keys and holds no credentials of its
+  own (ADR-45). One step is left, in *Users*: create the first account and grant it
+  the `admin` realm role.
 
   This is not the dev realm. `src/main/resources/realm_configuration-dev.json` has
   two throwaway logins, `sslRequired: none` and no password policy at all, because it
@@ -84,14 +83,11 @@ ssh root@example.com 'mkdir -p /srv/starter'
 ```bash
 cd /srv/starter
 ./setup-secrets.sh
-
-# Replace the placeholder with the real value from the Keycloak client. This one
-# cannot be generated: Keycloak mints it, and a random value gives a stack that
-# starts cleanly and fails every login.
-vi secrets/keycloak_client_secret.txt
-
 ./setup-secrets.sh show    # store these in a password manager
 ```
+
+Every secret the stack needs is generated here. Nothing has to be fetched from
+Keycloak.
 
 Idempotent: an existing secret is never overwritten, so re-running after adding a new
 one does the right thing and cannot silently rotate a password other components hold.
@@ -175,9 +171,11 @@ a review item on every migration.
 unreadable secret file, and the entrypoint says so explicitly by name rather than
 letting it surface later as an authentication failure.
 
-**Login fails, everything healthy.** `secrets/keycloak_client_secret.txt` does not
-match the Keycloak client, or `AUTH_DOMAIN`/`KEYCLOAK_REALM` is wrong. The backend
-logs a JWKS or issuer error.
+**Login fails, everything healthy.** `AUTH_DOMAIN` or `KEYCLOAK_REALM` is wrong, so
+the backend cannot reach the realm's JWKS or the issuer in the token does not match
+the one it was configured with. It logs one or the other. A realm imported without the
+audience mapper looks similar from the browser but fails at authorization, not
+validation.
 
 **Login redirects and comes back logged out.** The frontend's CSP is blocking the
 identity provider. Check `AUTH_ORIGIN` on the frontend container against the browser

@@ -31,7 +31,6 @@ read_secret() {
 read_secret QUARKUS_DATASOURCE_PASSWORD QUARKUS_DATASOURCE_PASSWORD_FILE
 read_secret S3_ACCESS_KEY S3_ACCESS_KEY_FILE
 read_secret S3_SECRET_KEY S3_SECRET_KEY_FILE
-read_secret KEYCLOAK_CLIENT_SECRET KEYCLOAK_CLIENT_SECRET_FILE
 read_secret DOWNLOAD_TOKEN_SECRET DOWNLOAD_TOKEN_SECRET_FILE
 
 # Redis takes its credentials inside the connection URL, so the password cannot

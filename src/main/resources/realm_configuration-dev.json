@@ -69,19 +69,6 @@
   ],
   "clients": [
     {
-      "clientId": "backend",
-      "enabled": true,
-      "clientAuthenticatorType": "client-secret",
-      "secret": "dev-secret-123",
-      "standardFlowEnabled": false,
-      "directAccessGrantsEnabled": false,
-      "serviceAccountsEnabled": true,
-      "publicClient": false,
-      "redirectUris": [],
-      "webOrigins": [],
-      "fullScopeAllowed": false
-    },
-    {
       "clientId": "frontend-client",
       "enabled": true,
       "publicClient": true,

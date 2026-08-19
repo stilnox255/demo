@@ -8,10 +8,9 @@
 #   ./setup-secrets.sh          generate what is missing
 #   ./setup-secrets.sh show     print the values (for a password manager)
 #
-# Secrets that are *not* generated here: keycloak_client_secret. That one is
-# minted by Keycloak as part of its realm import, so this script only creates a
-# placeholder and tells you to replace it. Generating a random value would produce
-# a stack that starts cleanly and fails every login.
+# Everything the stack needs is generated here. There is no secret to fetch from
+# elsewhere: the backend validates tokens against Keycloak's public keys and holds
+# no client credentials (ADR-45).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -24,7 +23,7 @@ SECRETS_DIR="$SCRIPT_DIR/secrets"
 # mode. The container runs as a non-root UID that has nothing to do with the host
 # owner, so 0600 makes the file unreadable inside the container. The failure is
 # not a permission error either: the application boots and then reports an
-# authentication failure against Postgres or Keycloak, which sends you looking in
+# authentication failure against Postgres or Redis, which sends you looking in
 # entirely the wrong place.
 #
 # 0644 inside a 0700 directory is not the compromise it looks like: another user
@@ -44,10 +43,6 @@ SECRETS=(
     "s3_secret_key:base64"
     "download_token_secret:base64"
     "grafana_admin_password:base64"
-)
-
-PLACEHOLDERS=(
-    "keycloak_client_secret"
 )
 
 generate() {
@@ -93,16 +88,6 @@ for entry in "${SECRETS[@]}"; do
     created=$((created + 1))
 done
 
-for name in "${PLACEHOLDERS[@]}"; do
-    file="$SECRETS_DIR/$name.txt"
-    if [ -f "$file" ]; then
-        echo "  = $name (exists, left alone)"
-        continue
-    fi
-    printf 'REPLACE_ME' > "$file"
-    echo "  ! $name (placeholder — copy the real value from Keycloak)"
-done
-
 chmod "$FILE_MODE" "$SECRETS_DIR"/*.txt
 
 echo
@@ -111,6 +96,5 @@ echo "Permissions: dir 0$DIR_MODE (host-owner only), files 0$FILE_MODE (readable
 echo "$created new secret(s) generated."
 echo
 echo "Next:"
-echo "  1. Replace secrets/keycloak_client_secret.txt with the value from your Keycloak realm."
-echo "  2. Store the values somewhere safe:  ./setup-secrets.sh show"
-echo "  3. cp .env.example .env  and set DOMAIN / AUTH_DOMAIN."
+echo "  1. Store the values somewhere safe:  ./setup-secrets.sh show"
+echo "  2. cp .env.example .env  and set DOMAIN / AUTH_DOMAIN."
