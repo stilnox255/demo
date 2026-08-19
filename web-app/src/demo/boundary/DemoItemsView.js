@@ -8,6 +8,7 @@ import {
     deleteDemoItem,
     attachFileToDemoItem,
 } from "../control/DemoItemsControl.js";
+import { t } from "../../i18n/control/I18nControl.js";
 
 /**
  * The demo resource, end to end: paginated list, create form, status change with
@@ -40,13 +41,13 @@ class DemoItemsView extends BElement {
 
         return html`
             <section class="config-section">
-                <h2>Demo Items</h2>
+                <h2>${t("demo.items.title")}</h2>
                 <demo-item-form></demo-item-form>
 
-                ${isLoading && items.length === 0 ? html`<p class="empty-state">Loading…</p>` : ""}
+                ${isLoading && items.length === 0 ? html`<p class="empty-state">${t("demo.items.loading")}</p>` : ""}
 
                 <app-data-table
-                    .columns=${["Name", "Status", "Attachment", "Version", ""]}
+                    .columns=${[t("demo.column.name"), t("demo.column.status"), t("demo.column.attachment"), t("demo.column.version"), ""]}
                     .rows=${items}
                     .renderRow=${(item) => this.renderRow(item)}
                     page=${meta.page}
@@ -61,16 +62,16 @@ class DemoItemsView extends BElement {
     renderRow(item) {
         return html`
             <td>${item.name}</td>
-            <td>${item.status}</td>
+            <td>${t(`demo.status.${item.status}`)}</td>
             <td>${this.renderAttachment(item)}</td>
             <td>${item.version}</td>
             <td class="row-actions">
                 ${this.renderStatusButton(item)}
                 <label class="file-button">
-                    Attach
+                    ${t("demo.attach")}
                     <input type="file" hidden @change=${(e) => this.attach(item, e)}>
                 </label>
-                <button @click=${() => deleteDemoItem(item)}>Delete</button>
+                <button @click=${() => deleteDemoItem(item)}>${t("demo.delete")}</button>
             </td>
         `;
     }
@@ -82,17 +83,23 @@ class DemoItemsView extends BElement {
      */
     renderAttachment(item) {
         if (!item.attachment) {
-            return html`<span class="muted">—</span>`;
+            return html`<span class="muted">${t("demo.noAttachment")}</span>`;
         }
         return html`<a href=${item.attachment.downloadUrl} download>${item.attachment.fileName}</a>`;
     }
 
+    /**
+     * The branch runs on the raw status the API sent, not on a translated label —
+     * the enum is a protocol value, the label is presentation. Mixing the two
+     * makes the transition depend on the current locale.
+     */
     renderStatusButton(item) {
         if (item.status === "ARCHIVED") {
             return "";
         }
         const next = item.status === "DRAFT" ? "ACTIVE" : "ARCHIVED";
-        return html`<button @click=${() => updateDemoItemStatus(item, next)}>${next === "ACTIVE" ? "Activate" : "Archive"}</button>`;
+        const label = next === "ACTIVE" ? t("demo.activate") : t("demo.archive");
+        return html`<button @click=${() => updateDemoItemStatus(item, next)}>${label}</button>`;
     }
 
     async attach(item, event) {

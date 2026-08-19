@@ -252,6 +252,14 @@ header {
     }
 }
 
+/* Same square as the theme toggle, but holding two uppercase letters instead of
+   an emoji — the locale code needs a smaller, heavier face to sit centred. */
+.theme-toggle.locale-toggle {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+}
+
 /* ── Buttons ────────────────────────────────────────────── */
 
 .primary-button,

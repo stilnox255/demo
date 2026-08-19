@@ -1,6 +1,7 @@
 import BElement from "../../BElement.js";
 import { html } from "lit-html";
 import "./PaginationControls.js";
+import { t } from "../../i18n/control/I18nControl.js";
 
 class DataTable extends BElement {
 
@@ -19,7 +20,7 @@ class DataTable extends BElement {
         const totalItems = Number(this.getAttribute("total-items") || 0);
 
         if (rows.length === 0) {
-            return html`<p class="empty-state">No data</p>`;
+            return html`<p class="empty-state">${t("table.noData")}</p>`;
         }
 
         return html`

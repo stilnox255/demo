@@ -6,7 +6,11 @@ export default defineConfig({
     testDir: './tests',
     timeout: 30_000,
     retries: 0,
-    use: { baseURL: BASE_URL },
+    // The locale is pinned, not inherited: the app picks its language from
+    // navigator.language when the user has not chosen one, so every spec that
+    // asserts UI text would otherwise depend on the host's language. locale-switch
+    // .spec.js is the one place that changes it, deliberately.
+    use: { baseURL: BASE_URL, locale: 'en-US' },
     // Reuse a running quarkusDev stack; start one only if nothing answers on BASE_URL.
     // In CI always start a fresh stack (reuseExistingServer: false).
     webServer: {

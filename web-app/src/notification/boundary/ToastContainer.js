@@ -1,7 +1,17 @@
 import BElement from "../../BElement.js";
 import { html } from "lit-html";
 import { dismissToast, runToastAction } from "../control/NotificationsControl.js";
+import { t } from "../../i18n/control/I18nControl.js";
 
+/**
+ * Toast fields are resolved here rather than where the toast is raised, because a
+ * toast lives in the store and would otherwise keep the language it was created
+ * in across a locale switch.
+ *
+ * Control modules therefore dispatch catalogue keys. Server-supplied
+ * `problem+json` text passes through untouched: it misses the catalogue and `t()`
+ * returns the input verbatim.
+ */
 class ToastContainer extends BElement {
     extractState({ notifications }) {
         return notifications.toasts;
@@ -12,20 +22,20 @@ class ToastContainer extends BElement {
     }
     view() {
         return html`
-            <div class="toast-stack" role="log" aria-live="polite" aria-label="Notifications">
+            <div class="toast-stack" role="log" aria-live="polite" aria-label=${t("notification.listAria")}>
                 ${this.state.map(toast => html`
                     <div class="toast toast--${toast.type}" role="alert">
                         <div class="toast__body">
-                            <span class="toast__title">${toast.title}</span>
-                            ${toast.detail ? html`<span class="toast__detail">${toast.detail}</span>` : ""}
+                            <span class="toast__title">${t(toast.title)}</span>
+                            ${toast.detail ? html`<span class="toast__detail">${t(toast.detail)}</span>` : ""}
                         </div>
                         ${toast.action ? html`
                             <button
                                 class="toast__action"
                                 @click="${_ => { runToastAction(toast.action.type); dismissToast(toast.id); }}"
-                            >${toast.action.label}</button>
+                            >${t(toast.action.label)}</button>
                         ` : ""}
-                        <button class="toast__close" aria-label="Dismiss" @click="${_ => dismissToast(toast.id)}">✕</button>
+                        <button class="toast__close" aria-label=${t("notification.dismiss")} @click="${_ => dismissToast(toast.id)}">✕</button>
                     </div>
                 `)}
             </div>

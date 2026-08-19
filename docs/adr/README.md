@@ -75,6 +75,7 @@ the reason the new one looks the way it does.
 | [29](ADR-29-global-toast-container-as-a-singleton.md) | Global Toast Container as a Singleton Component |
 | [30](ADR-30-notifications-redux-slice-owns-toast-state.md) | The Notifications Slice Owns Toast State |
 | [31](ADR-31-error-toasts-automatic-success-explicit.md) | Error Toasts Are Automatic, Success Toasts Are Explicit |
+| [46](ADR-46-frontend-i18n-via-bundled-flat-catalogues.md) | Frontend i18n via Bundled Flat Catalogues |
 
 ## Pipeline and deployment
 

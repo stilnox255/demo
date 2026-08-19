@@ -3,12 +3,14 @@ import { html } from "lit-html";
 import { Router } from "@vaadin/router";
 import "../../auth/boundary/KeycloakAuth.js";
 import "../../theme/boundary/ThemeSwitcher.js";
+import "../../i18n/boundary/LocaleSwitcher.js";
 import "../../landing/boundary/LandingPage.js";
 import "../../notification/boundary/ToastContainer.js";
 import "../../health/boundary/SystemStatus.js";
 import "../../info/boundary/ApiDocumentation.js";
 import "../../demo/boundary/DemoItemsView.js";
 import { hasRole } from "../../auth/control/AuthControl.js";
+import { t } from "../../i18n/control/I18nControl.js";
 
 let routerInitialized = false;
 
@@ -57,8 +59,9 @@ class AppShell extends BElement {
         return html`
             <toast-container></toast-container>
             <header>
-                <h1>Starter Admin</h1>
+                <h1>${t("app.title")}</h1>
                 <div class="auth-status">
+                    <locale-switcher></locale-switcher>
                     <theme-switcher></theme-switcher>
                     <keycloak-auth></keycloak-auth>
                 </div>
@@ -66,7 +69,7 @@ class AppShell extends BElement {
 
             <main id="main">
                 <input type="checkbox" id="menu-toggle" class="menu-toggle">
-                <label for="menu-toggle" class="menu-icon" aria-label="Menu">
+                <label for="menu-toggle" class="menu-icon" aria-label=${t("nav.menu")}>
                     <span></span>
                     <span></span>
                     <span></span>
@@ -74,9 +77,9 @@ class AppShell extends BElement {
 
                 <nav class="sidebar" @click="${this.handleNavClick}">
                     <ul>
-                        <li><a href="/" class="nav-section">📋 Demo Items</a></li>
-                        <li><a href="/api" class="nav-sub">📖 API Documentation</a></li>
-                        ${hasRole("admin") ? html`<li><a href="/status" class="nav-sub">⚡ System Status</a></li>` : ""}
+                        <li><a href="/" class="nav-section">📋 ${t("nav.demoItems")}</a></li>
+                        <li><a href="/api" class="nav-sub">📖 ${t("nav.apiDocumentation")}</a></li>
+                        ${hasRole("admin") ? html`<li><a href="/status" class="nav-sub">⚡ ${t("nav.systemStatus")}</a></li>` : ""}
                     </ul>
                 </nav>
 
@@ -84,7 +87,7 @@ class AppShell extends BElement {
             </main>
 
             <footer>
-                <p>Starter &mdash; reference stack</p>
+                <p>${t("app.footer")}</p>
             </footer>
         `;
     }

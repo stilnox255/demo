@@ -23,6 +23,24 @@ Per feature: `boundary/` components, `control/` side effects, `entity/` reducer.
   imported — the reducers import their action creators from the control module, so
   importing the store back would close the cycle.
 
+## Translations (ADR-46)
+
+Two locales, `en` (fallback) and `de`, in `src/i18n/entity/{en,de}.js`. Adding one is
+an import plus an entry in `catalogues.js` — nothing else derives the locale list.
+
+- No user-visible literal in a `boundary/` component. It goes in both catalogues and
+  the component calls `t("some.key")`.
+- A control module that raises a toast dispatches the **key**, not the text.
+  `ToastContainer` resolves it at render time, so an open toast follows a language
+  switch. Text supplied by the server passes through unchanged: it misses the
+  catalogue and `t()` returns its input.
+- `t()` returns a string, never a template. A sentence cannot wrap a link or a
+  nested component — end the sentence before it, as `ApiDocumentation` does.
+- Numbers go through `formatNumber`, not string interpolation.
+- Both catalogues need the same keys. A missing one renders as the key itself.
+- The English values are what the Playwright specs assert. Changing one is a test
+  change too.
+
 ## Notifications (ADR-29, ADR-30, ADR-31)
 
 - Error toasts are raised **centrally** by the authenticated fetch wrapper. Do not

@@ -1,5 +1,6 @@
 import BElement from "../../BElement.js";
 import { html } from "lit-html";
+import { t, formatNumber } from "../../i18n/control/I18nControl.js";
 
 /**
  * Generic pagination web component for all paginated lists.
@@ -30,15 +31,21 @@ class PaginationControls extends BElement {
                 <button
                     ?disabled=${isFirst}
                     @click=${() => this.navigate(page - 1)}>
-                    ‹ Prev
+                    ${t("pagination.previous")}
                 </button>
                 <span class="pagination-info">
-                    ${start}–${end} of ${totalItems} (page ${page}/${totalPages})
+                    ${t("pagination.range", {
+                        start: formatNumber(start),
+                        end: formatNumber(end),
+                        total: formatNumber(totalItems),
+                        page: formatNumber(page),
+                        totalPages: formatNumber(totalPages)
+                    })}
                 </span>
                 <button
                     ?disabled=${isLast}
                     @click=${() => this.navigate(page + 1)}>
-                    Next ›
+                    ${t("pagination.next")}
                 </button>
             </div>
         `;

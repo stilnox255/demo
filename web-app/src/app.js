@@ -1,5 +1,6 @@
 import store from "./store.js";
 import { initTheme } from "./theme/control/ThemeControl.js";
+import { initI18n } from "./i18n/control/I18nControl.js";
 import { loadAppConfig, loadOidcConfig, checkAuth, login } from "./auth/control/AuthControl.js";
 import { registerToastActionHandler } from "./notification/control/NotificationsControl.js";
 import "./navigation/boundary/AppShell.js";
@@ -18,6 +19,9 @@ if (typeof window !== "undefined") {
 }
 
 initTheme();
+// Before the first render, like initTheme: catalogues are bundled, so this is
+// synchronous and no frame ever paints untranslated keys.
+initI18n();
 registerToastActionHandler("login", login);
 
 async function initApp() {

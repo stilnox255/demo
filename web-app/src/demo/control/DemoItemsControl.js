@@ -21,6 +21,9 @@ export const demoItemsErrorAction = createAction("demoItemsError");
  * a failed response, so a toast per call site would double up (ADR-31). Success
  * is the opposite — it is only worth announcing where the user did something, so
  * it is explicit.
+ *
+ * Toast titles are catalogue keys, not text: `ToastContainer` resolves them at
+ * render time so an open toast follows a locale switch.
  */
 export const loadDemoItems = async (page = 1, pageSize = 25) => {
     if (!storeInstance) return;
@@ -43,7 +46,7 @@ export const createDemoItem = async (name, description) => {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ name, description }),
         }, true);
-        showSuccessToast("Item created", name);
+        showSuccessToast("demo.toast.created", name);
         await loadDemoItems();
         return true;
     } catch {
@@ -70,7 +73,7 @@ export const updateDemoItemStatus = async (item, status) => {
                 expectedVersion: item.version,
             }),
         }, true);
-        showSuccessToast("Item updated", item.name);
+        showSuccessToast("demo.toast.updated", item.name);
         await loadDemoItems(currentPage());
         return true;
     } catch {
@@ -85,7 +88,7 @@ export const deleteDemoItem = async (item) => {
     if (!storeInstance) return false;
     try {
         await authenticatedFetch(`/api/demo-items/${item.id}`, { method: "DELETE" }, true);
-        showSuccessToast("Item deleted", item.name);
+        showSuccessToast("demo.toast.deleted", item.name);
         await loadDemoItems(currentPage());
         return true;
     } catch {
@@ -99,7 +102,7 @@ export const attachFileToDemoItem = async (item, file) => {
     form.append("file", file);
     try {
         await authenticatedFetch(`/api/demo-items/${item.id}/attachment`, { method: "POST", body: form }, true);
-        showSuccessToast("File attached", file.name);
+        showSuccessToast("demo.toast.attached", file.name);
         await loadDemoItems(currentPage());
         return true;
     } catch {

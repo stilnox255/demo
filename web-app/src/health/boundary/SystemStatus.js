@@ -1,6 +1,7 @@
 import BElement from "../../BElement.js";
 import { html } from "lit-html";
 import { startHealthPolling, stopHealthPolling } from "../control/HealthControl.js";
+import { t } from "../../i18n/control/I18nControl.js";
 
 class SystemStatus extends BElement {
     constructor() {
@@ -27,11 +28,11 @@ class SystemStatus extends BElement {
 
     view() {
         const statusClass = this.state.status.toLowerCase();
-        const statusText = this.state.status === "UP" 
-            ? "All systems operational"
+        const statusText = this.state.status === "UP"
+            ? t("status.up")
             : this.state.status === "DOWN"
-            ? "System outage detected"
-            : "Checking system...";
+            ? t("status.down")
+            : t("status.checking");
 
         return html`
             <section class="status-page">
@@ -47,7 +48,7 @@ class SystemStatus extends BElement {
                 </div>
                 
                 <details class="status-details">
-                    <summary>Technical Details</summary>
+                    <summary>${t("status.technicalDetails")}</summary>
                     <pre>${JSON.stringify({ status: this.state.status, checks: this.state.checks }, null, 2)}</pre>
                 </details>
             </section>
@@ -60,24 +61,23 @@ class SystemStatus extends BElement {
         // for it here would show UNKNOWN forever and teach everyone to ignore the
         // page.
         const services = [
-            { id: "database", name: "Database", description: "PostgreSQL connection pool", icon: "💾" },
-            { id: "s3", name: "Object Storage", description: "S3-compatible file storage", icon: "🗄️" }
+            { id: "database", icon: "💾" },
+            { id: "s3", icon: "🗄️" }
         ];
 
         return services.map(service => {
             const check = this.findCheck(service.id);
             const status = check ? check.status : "UNKNOWN";
             const statusClass = status.toLowerCase();
-            const statusLabel = status === "UP" ? "Operational" : status === "DOWN" ? "Offline" : status;
 
             return html`
                 <div class="service-item">
                     <span class="service-icon">${service.icon}</span>
                     <div class="service-info">
-                        <h3>${service.name}</h3>
-                        <p>${service.description}</p>
+                        <h3>${t(`status.service.${service.id}.name`)}</h3>
+                        <p>${t(`status.service.${service.id}.description`)}</p>
                     </div>
-                    <div class="service-status ${statusClass}">${statusLabel}</div>
+                    <div class="service-status ${statusClass}">${t(`status.label.${status}`)}</div>
                 </div>
             `;
         });

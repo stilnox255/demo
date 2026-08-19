@@ -1,6 +1,7 @@
 import BElement from "../../BElement.js";
 import { html } from "lit-html";
 import { login } from "../../auth/control/AuthControl.js";
+import { t } from "../../i18n/control/I18nControl.js";
 
 /**
  * Unauthenticated entry point. Rendered by the shell whenever there is no valid
@@ -27,20 +28,17 @@ class LandingPage extends BElement {
                                 <rect x="16" y="42" width="20" height="4" rx="2" fill="currentColor" opacity="0.45"/>
                             </svg>
                         </div>
-                        <h1>Starter Admin</h1>
-                        <p class="landing-tagline">
-                            Reference frontend for the standard stack: web components, Redux Toolkit,
-                            client-side routing and OIDC — no framework beyond the platform.
-                        </p>
+                        <h1>${t("app.title")}</h1>
+                        <p class="landing-tagline">${t("landing.tagline")}</p>
                     </div>
 
                     <button
                         class="landing-login-btn"
                         @click=${login}
                         ?disabled=${this.state.isLoading}
-                        aria-label="Sign in"
+                        aria-label=${t("landing.signInAria")}
                     >
-                        ${this.state.isLoading ? "Initializing…" : "Sign In"}
+                        ${this.state.isLoading ? t("landing.initializing") : t("landing.signIn")}
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
                             <polyline points="10 17 15 12 10 7"/>
@@ -49,7 +47,7 @@ class LandingPage extends BElement {
                     </button>
                 </div>
 
-                <div class="landing-features" role="list" aria-label="Features">
+                <div class="landing-features" role="list" aria-label=${t("landing.featuresAria")}>
                     <article class="landing-feature-card" role="listitem">
                         <div class="feature-icon" aria-hidden="true">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
@@ -61,8 +59,8 @@ class LandingPage extends BElement {
                                 <line x1="3" y1="18" x2="3.01" y2="18"/>
                             </svg>
                         </div>
-                        <h2>Demo Resource</h2>
-                        <p>One aggregate end to end: paginated list, validation, optimistic locking, file attachment and signed downloads.</p>
+                        <h2>${t("landing.feature.demo.title")}</h2>
+                        <p>${t("landing.feature.demo.body")}</p>
                     </article>
 
                     <article class="landing-feature-card" role="listitem">
@@ -71,8 +69,8 @@ class LandingPage extends BElement {
                                 <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
                             </svg>
                         </div>
-                        <h2>System Status</h2>
-                        <p>Live readiness of the dependencies that decide whether this instance can serve — database and object storage.</p>
+                        <h2>${t("landing.feature.status.title")}</h2>
+                        <p>${t("landing.feature.status.body")}</p>
                     </article>
 
                     <article class="landing-feature-card" role="listitem">
@@ -84,13 +82,13 @@ class LandingPage extends BElement {
                                 <line x1="16" y1="17" x2="8" y2="17"/>
                             </svg>
                         </div>
-                        <h2>API Documentation</h2>
-                        <p>Generated OpenAPI with Swagger UI, annotated per endpoint rather than left as a bare type listing.</p>
+                        <h2>${t("landing.feature.api.title")}</h2>
+                        <p>${t("landing.feature.api.body")}</p>
                     </article>
                 </div>
 
                 <footer class="landing-footer">
-                    <p>Starter &mdash; reference stack</p>
+                    <p>${t("app.footer")}</p>
                 </footer>
             </div>
         `;

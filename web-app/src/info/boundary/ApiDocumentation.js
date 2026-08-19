@@ -1,5 +1,6 @@
 import BElement from "../../BElement.js";
 import { html } from "lit-html";
+import { t } from "../../i18n/control/I18nControl.js";
 
 class ApiDocumentation extends BElement {
     extractState() {
@@ -9,11 +10,11 @@ class ApiDocumentation extends BElement {
     view() {
         return html`
             <section class="config-section">
-                <h2>API Documentation</h2>
+                <h2>${t("api.title")}</h2>
                 <details>
-                    <summary>OpenAPI Specification</summary>
-                    <p>View API documentation at <a href="/openapi" target="_blank">openapi</a></p>
-                    <p>Swagger UI at <a href="/q/swagger-ui" target="_blank">/q/swagger-ui</a></p>
+                    <summary>${t("api.specification")}</summary>
+                    <p>${t("api.viewDocumentationAt")} <a href="/openapi" target="_blank">openapi</a></p>
+                    <p>${t("api.swaggerUiAt")} <a href="/q/swagger-ui" target="_blank">/q/swagger-ui</a></p>
                 </details>
             </section>
         `;

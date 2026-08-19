@@ -113,9 +113,13 @@ Rename in this order:
    the current one:
 
    ```bash
-   grep -rIl 'starter\|STARTER_' \
+   grep -rIln 'starter\|STARTER_' \
        --exclude-dir={node_modules,dist,build,.git,.gradle,.idea} .
    ```
+
+   Add `-i` for the product name as the user sees it: "Starter Admin" and the
+   footer live in `web-app/src/i18n/entity/{en,de}.js` under `app.title` and
+   `app.footer`, and nowhere else in the frontend (ADR-46).
 
    The obvious hits are the Gradle project name, the config prefix in
    `application.properties` and the image names. The ones people miss are in

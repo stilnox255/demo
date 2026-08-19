@@ -87,9 +87,9 @@ function sessionExpired() {
     cancelTokenRefresh();
     showActionToast({
         type: "error",
-        title: "Session expired",
-        detail: "Log in again to continue",
-        action: { label: "Log in again", type: "login" }
+        title: "auth.sessionExpired.title",
+        detail: "auth.sessionExpired.detail",
+        action: { label: "auth.sessionExpired.action", type: "login" }
     });
 }
 
@@ -277,9 +277,14 @@ async function handleErrorResponse(response, rethrow) {
     if (contentType.includes("application/problem+json")) {
         const problem = await response.json();
         const firstFieldError = Array.isArray(problem.errors) && problem.errors.length > 0 && problem.errors[0];
+        // `problem.detail` / `problem.title` are the server's own wording and stay
+        // as they arrive — the backend has no Accept-Language handling, so this is
+        // the one user-visible text a locale switch cannot reach. Only our own
+        // fallback is a catalogue key; ToastContainer resolves it and passes the
+        // server's text through untouched.
         const detail = firstFieldError
             ? `${firstFieldError.field}: ${firstFieldError.message}`
-            : (problem.detail || problem.title || "Request failed");
+            : (problem.detail || problem.title || "auth.requestFailed");
         err = new Error(detail);
         err.type = problem.type;
         err.title = problem.title;
@@ -291,7 +296,7 @@ async function handleErrorResponse(response, rethrow) {
         err.title = `HTTP ${response.status}`;
         err.detail = response.statusText;
     }
-    showErrorToast(err.title ?? "Request failed", err.detail ?? null);
+    showErrorToast(err.title ?? "auth.requestFailed", err.detail ?? null);
     if (rethrow) throw err;
 }
 

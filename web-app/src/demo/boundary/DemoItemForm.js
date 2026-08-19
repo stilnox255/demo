@@ -1,12 +1,15 @@
 import BElement from "../../BElement.js";
 import { html } from "lit-html";
 import { createDemoItem } from "../control/DemoItemsControl.js";
+import { t } from "../../i18n/control/I18nControl.js";
 
 /**
  * Create form for a demo item.
  *
  * Validation is left to the platform: `required` and `maxlength` on the inputs
- * give native messages in the user's language, and the server rejects anything
+ * give native messages in the browser's language — the one part of the UI that
+ * was already localized before the catalogue existed, and the reason there is no
+ * `setCustomValidity` here. The server rejects anything
  * that gets past them anyway. Re-implementing the checks in JavaScript would add
  * a second set of rules to keep in sync with the backend's.
  */
@@ -28,14 +31,16 @@ class DemoItemForm extends BElement {
         return html`
             <form class="demo-item-form" @submit=${(e) => this.submit(e)}>
                 <label>
-                    Name
-                    <input name="name" type="text" required maxlength="120" placeholder="What to call it">
+                    ${t("demo.form.name")}
+                    <input name="name" type="text" required maxlength="120"
+                           placeholder=${t("demo.form.namePlaceholder")}>
                 </label>
                 <label>
-                    Description
-                    <input name="description" type="text" maxlength="2000" placeholder="Optional">
+                    ${t("demo.form.description")}
+                    <input name="description" type="text" maxlength="2000"
+                           placeholder=${t("demo.form.descriptionPlaceholder")}>
                 </label>
-                <button type="submit" ?disabled=${this.state.isLoading}>Create</button>
+                <button type="submit" ?disabled=${this.state.isLoading}>${t("demo.form.create")}</button>
             </form>
         `;
     }

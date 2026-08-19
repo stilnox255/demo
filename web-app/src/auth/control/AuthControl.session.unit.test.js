@@ -62,11 +62,13 @@ describe('sessionExpired — repeat-suppression', () => {
     it('shows the toast on the first refresh failure', async () => {
         await expect(authenticatedFetch('https://example/api')).rejects.toThrow('Session expired');
         expect(toastDispatches).toHaveLength(1);
+        // Catalogue keys, not text: ToastContainer resolves them at render time so
+        // an open toast follows a locale switch.
         expect(toastDispatches[0]).toMatchObject({
             type: 'error',
-            title: 'Session expired',
-            detail: 'Log in again to continue',
-            action: { label: 'Log in again', type: 'login' }
+            title: 'auth.sessionExpired.title',
+            detail: 'auth.sessionExpired.detail',
+            action: { label: 'auth.sessionExpired.action', type: 'login' }
         });
     });
 
