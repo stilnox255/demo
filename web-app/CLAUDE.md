@@ -66,7 +66,9 @@ merges inherited headers, so omitting them silently unsets them for that locatio
 For a report of an unexpected logout, walk the chain in
 `src/auth/control/AuthControl.js` (ADR-27):
 
-1. `checkAuth` — runs on every page load; attempts a refresh on 401 before giving up.
+1. `checkAuth` — runs on every page load; attempts a refresh on 401 and hands a
+   failure to `sessionExpired` (step 5), the same ending as a mid-session call. It
+   does not log out: that would be a silent session end.
 2. `refreshTokens` — single-flight: concurrent callers share one request. Without
    this, token rotation invalidates all but one of them.
 3. `scheduleTokenRefresh` — fires shortly before expiry; logout cancels it.
