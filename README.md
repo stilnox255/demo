@@ -137,6 +137,12 @@ Rename in this order:
 5. **The demo component** — delete `de.ingoschindler.demo` and its tests, and add
    your own component in the same shape. The ArchUnit suite will tell you if the
    shape is wrong.
+
+   One thing in it is a decision rather than a shape, and no fitness function will
+   catch it: the read scope. Every port here takes an `ownerId`, which is the
+   narrowest scope available and wrong for any product whose rows are shared by a
+   team or a tenant. Settle that before the first query exists — ADR-47 has the
+   alternatives and what each costs.
 6. **`LICENSE`** — MIT with the original author's name in the copyright line.
 7. **ADRs** — keep them. They describe the stack, not the demo. Adjust the ones
    whose trade-off differs for your project, and record *that* as the change.

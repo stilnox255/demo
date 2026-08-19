@@ -7,6 +7,8 @@ who only sees the cost.
 
 Read them in whatever order the question demands. If you are starting a project from
 this one, ADR-01 through ADR-04 are the load-bearing ones; the rest follow from them.
+Read ADR-47 alongside them: the scope it fixes is the first decision a real domain
+has to revisit.
 
 **Format:** context, decision, rationale, consequences. Alternatives get their own
 section where the rejected option is the one a reader would otherwise reach for.
@@ -25,6 +27,7 @@ the reason the new one looks the way it does.
 | [02](ADR-02-kernel-scope-narrowing.md) | Kernel Scope Narrowing |
 | [03](ADR-03-cross-bc-persistence-decoupling.md) | Cross-BC Persistence Decoupling |
 | [04](ADR-04-transaction-boundaries-belong-to-use-cases.md) | Transaction Boundaries Belong to Use Cases |
+| [47](ADR-47-owner-scoping-as-the-default-read-scope.md) | Owner Scoping Is the Default Read Scope |
 
 ## HTTP API
 

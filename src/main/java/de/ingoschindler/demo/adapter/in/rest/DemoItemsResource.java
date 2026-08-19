@@ -68,7 +68,8 @@ import java.util.UUID;
  * <p>{@code ownerId} always comes from {@link SecurityIdentity} and never from the
  * request. That single rule is what keeps an id in a path from becoming an IDOR:
  * the owner is a server-side fact, so a caller cannot ask for someone else's row
- * by guessing its id.</p>
+ * by guessing its id. The scope coming from the identity is binding; the scope
+ * being an owner is this project's default (ADR-47).</p>
  */
 @Path("/api/demo-items")
 @Produces(MediaType.APPLICATION_JSON)

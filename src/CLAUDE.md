@@ -49,7 +49,9 @@ the only mechanism.
 
 - Every read is **owner-scoped at the port level**. There is deliberately no
   `findById(UUID)` to reach for: an ownership check in the caller is one somebody
-  forgets, and that is how an IDOR ships.
+  forgets, and that is how an IDOR ships. The scope being an *argument* is the rule;
+  the scope being an *owner* is this project's default, and ADR-47 has the
+  alternatives for a domain whose rows are shared.
 - An exception needs a name that looks like one: `findByIdForSignedAccess(UUID)` for
   the token-authorized download path, so using it looks like the exception it is.
 - Filters belong in the query, never as a `.filter()` after a `list()`.

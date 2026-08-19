@@ -16,6 +16,10 @@ import java.util.UUID;
  * {@code findById(UUID)} to reach for by accident: an ownership check that lives
  * in the caller is an ownership check somebody forgets, which is how an IDOR
  * ships. The filter belongs in the query, not in an {@code if} after it.</p>
+ *
+ * <p>That the scope is an argument is the rule; that it is an <em>owner</em> is
+ * the narrowest default, chosen because it needs no membership model (ADR-47).
+ * A domain with shared rows changes the argument here and follows the compiler.</p>
  */
 public interface DemoItemRepository {
 
