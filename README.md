@@ -45,7 +45,7 @@ src/main/java/de/ingoschindler/
 web-app/               frontend, boundary/control/entity per feature (ADR-28)
 load-test/             Gatling capacity tests (ADR-43)
 deploy/                self-contained deployment unit (ADR-39)
-docs/adr/              45 decision records
+docs/adr/              47 decision records
 docs/guidelines/       empty extension point for project policy
 .claude/               the hook that keeps test runs scoped
 ```
@@ -149,6 +149,60 @@ Rename in this order:
 
 What to keep untouched unless you have a reason: `kernel/`, `infrastructure/`,
 `config/`, and the CI workflows.
+
+## Leaving things out
+
+Not every project needs every mechanism, and removal goes with the grain here. Keycloak
+and Traefik are outside the stack to begin with: `deploy/docker-compose.yml` brings up
+eleven services and neither is among them, so an instance you already run is a matter of
+configuration rather than of code. The rest comes off in three tiers.
+
+**A property.** The cache runs on Redis in deployed environments and on Caffeine in
+tests, switched by `quarkus.cache.type` (ADR-41). Setting it to `caffeine` everywhere
+drops the `redis` and `redis-exporter` services with no code change. The cost is the one
+ADR-22 names: a Caffeine cache is per instance, so two backends behind the proxy hold
+two snapshots, and an invalidation on one does not reach the other. On a single instance
+that costs nothing.
+
+**A directory.** `deploy/monitoring/` goes as a unit together with the `prometheus`,
+`grafana` and `postgres-exporter` services; Micrometer keeps filling `/q/metrics` with
+nobody scraping it, which is harmless. `load-test/` needs its `include` line out of
+`settings.gradle` first (ADR-43). Tracing is already off in dev and test
+(`quarkus.otel.traces.exporter=none`) and is one variable in prod.
+
+**Deletion, for object storage.** The only mechanism whose removal touches code, and the
+only one worth a list:
+
+- `kernel/storage/`, `kernel/download/` and `kernel/upload/` go whole, with their tests
+  and `ObjectStorageStub`. So does `S3HealthCheck`, which is the one people miss: it is
+  a `@Readiness` check, so leaving it behind a bucket that no longer exists gives you an
+  app that starts, logs nothing unusual, and never reports ready. Traefik keeps it out
+  of rotation, and the cause sits in a health endpoint nobody thought to open.
+- The attachment use cases in `demo/application` go: attach, download and the recorder,
+  with their in-ports, the command and the result record. So do the two resource
+  methods that call them.
+- Trimmed rather than deleted: `DemoItem` loses its nested `Attachment` record and
+  `withAttachment` / `findAttachment`, `DemoItemResponse` and `DemoItemSummary` lose
+  their attachment fields, `DemoItemJpaEntity` and its mapper lose the reference, and
+  `DeleteDemoItemService` stops deleting a blob.
+- `V1__init.sql` loses the `storage_ref` table and the `attachment_storage_ref_id`
+  column. `build.gradle` loses two Amazon dependencies and their BOM.
+  `application.properties` loses nine `quarkus.s3.*` lines, the Floci dev-service lines,
+  and nine fault-tolerance keys named after `ObjectStorageAdapter`.
+- `deploy/docker-compose.yml` loses `rustfs` and `rustfs-init`. The frontend loses the
+  upload control in `DemoItemsView.js` and `DemoItemsControl.js`, plus the matching keys
+  in both i18n catalogues.
+
+With all three tiers applied, four services remain: backend, frontend, `postgres` and
+`postgres-backup`.
+Keep the backup. It is the cheapest service in the file and the only one whose absence
+is discovered at the worst possible moment.
+
+Removal is the direction this repository is built for, and the asymmetry is the reason.
+Putting signed downloads, a normalized storage catalogue and per-operation timeout
+budgets back in later is design work, and that reasoning (ADR-15 through ADR-19) is what
+took longest to get right here. Deleting it for one project is cheaper than deriving it
+again for the next.
 
 ## Guidelines
 
