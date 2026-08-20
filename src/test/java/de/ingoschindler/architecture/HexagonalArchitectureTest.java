@@ -233,28 +233,30 @@ class HexagonalArchitectureTest {
     }
 
     /**
-     * One BC's outbound adapter must not reach into another's — that is how two BCs
-     * end up sharing a table and neither can be deployed on its own again.
+     * One BC's adapter must not reach into another's — neither its persistence
+     * (that is how two BCs end up sharing a table and neither can be deployed on
+     * its own again) nor its inbound side (that is how a messaging listener ends
+     * up observing another BC's domain event directly instead of its published
+     * port).
      */
     @Test
-    void adapterOutDoesNotDependOnAnotherBcsAdapterOut() {
-        ArchRule rule = classes().that().resideInAPackage(BASE_PACKAGE + "..").and().resideInAPackage("..adapter.out..")
-                .should(notDependOnAnotherBcsAdapterOut())
-                .because("cross-BC access goes through a port, never another BC's concrete adapter or JPA entity"
-                        + " (ADR-01, ADR-03)");
+    void adaptersDoNotDependOnAnotherBcsAdapter() {
+        ArchRule rule = classes().that().resideInAPackage(BASE_PACKAGE + "..").and().resideInAPackage("..adapter..")
+                .should(notDependOnAnotherBcsAdapter())
+                .because("cross-BC access goes through application.port.in, never another BC's concrete adapter"
+                        + " — in or out (ADR-01, ADR-03)");
         rule.check(CLASSES);
     }
 
-    static ArchCondition<JavaClass> notDependOnAnotherBcsAdapterOut() {
-        return new ArchCondition<>("not depend on another BC's adapter.out classes") {
+    static ArchCondition<JavaClass> notDependOnAnotherBcsAdapter() {
+        return new ArchCondition<>("not depend on another BC's adapter classes") {
             @Override
             public void check(JavaClass source, ConditionEvents events) {
                 String sourceBc = bcOf(source.getPackageName());
                 source.getDirectDependenciesFromSelf().forEach(dep -> {
                     JavaClass targetClass = dep.getTargetClass();
                     String target = targetClass.getFullName();
-                    if (!target.startsWith(BASE_PACKAGE + ".")
-                            || !targetClass.getPackageName().contains(".adapter.out")) {
+                    if (!target.startsWith(BASE_PACKAGE + ".") || !targetClass.getPackageName().contains(".adapter.")) {
                         return;
                     }
 
